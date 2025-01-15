@@ -75,7 +75,7 @@ cd steam-depot-online
 ## Notes
 
 1. The **encrypted repositories** have hashed decryption keys, their lua files can be installed, but the games won't run. they would show `The content is still encrypted error`.
-   - Possible Solutions: Find the same game from decrypted repositories, and replace the **Decryption Keys**.
+   - **Possible Solutions**: Find the same game from decrypted repositories, and replace the **Decryption Keys**.
    - The **Decryption Keys** would work for the **Depots** with different **Manifest ID**.
 2. The encrypted lua files from **SWA Tool** with the format \*.st can be installed, and the Decryption keys can be extracted after installing the game.
 
