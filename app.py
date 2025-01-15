@@ -18,7 +18,7 @@ ctk.set_default_color_theme("blue")
 class ManifestDownloader(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("Manifest Downloader")
+        self.title("Steam Depot Online (SDO)")
         self.geometry("900x950")
         self.resizable(False, False)
 
