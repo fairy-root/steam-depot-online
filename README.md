@@ -76,7 +76,7 @@ cd steam-depot-online
 
 1. **make sure to understand the following**:
 
-- if you just want the game, then select all the decrypted repositories, and deselect the encrypted ones. the game will get downloaded if it found in any repository
+- if you just want the game, then select all the decrypted repositories, and deselect the encrypted ones. the game will get downloaded if it was found in any repository
 
 - if you want the latest updates, you can get the encrypted game, then replace the decryption keys.
   - **Encrypted repositories** have latest manifests. (Games will not work)
