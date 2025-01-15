@@ -78,6 +78,7 @@ cd steam-depot-online
    - **Possible Solutions**: Find the same game from decrypted repositories, and replace the **Decryption Keys**.
    - The **Decryption Keys** would work for the **Depots** with different **Manifest ID**.
 2. The encrypted lua files from **SWA Tool** with the format \*.st can be installed, and the Decryption keys can be extracted after installing the game.
+3. After some uses, the repositories get **rate limited**. Use a **VPN** to change your location after few downloads.
 
 ---
 
@@ -92,8 +93,8 @@ Your support is appreciated:
 
 ## Author
 
-- GitHub: [FairyRoot](https://github.com/fairy-root)
-- Telegram: [@FairyRoot](https://t.me/FairyRoot)
+- **GitHub**: [FairyRoot](https://github.com/fairy-root)
+- **Telegram**: [@FairyRoot](https://t.me/FairyRoot)
 
 ## Contributing
 
