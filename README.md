@@ -8,6 +8,10 @@
 
 **Steam Depot Online (SDO)** is a feature-rich tool for downloading and managing Steam manifests. This application fetches manifest and `key.vdf` data from GitHub repositories, generates Lua scripts for decryption keys, and compresses the outcome into a zip archive for easy access and sharing.
 
+<div align="center">
+  <img src="imgs/ui.png" alt="SDO UI">
+</div>
+
 ---
 
 ## Features
