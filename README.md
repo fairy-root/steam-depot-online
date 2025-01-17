@@ -94,14 +94,18 @@ cd steam-depot-online
 
 ---
 
+## Changelog
+
+See the [Changelog](changelog.md) file for more details.
+
 ## Donation
 
 Your support is appreciated:
 
-- USDt (TRC20): `TGCVbSSJbwL5nyXqMuKY839LJ5q5ygn2uS`
-- BTC: `13GS1ixn2uQAmFQkte6qA5p1MQtMXre6MT`
-- ETH (ERC20): `0xdbc7a7dafbb333773a5866ccf7a74da15ee654cc`
-- LTC: `Ldb6SDxUMEdYQQfRhSA3zi4dCUtfUdsPou`
+- **USDt (TRC20)**: `TGCVbSSJbwL5nyXqMuKY839LJ5q5ygn2uS`
+- **BTC**: `13GS1ixn2uQAmFQkte6qA5p1MQtMXre6MT`
+- **ETH (ERC20)**: `0xdbc7a7dafbb333773a5866ccf7a74da15ee654cc`
+- **LTC**: `Ldb6SDxUMEdYQQfRhSA3zi4dCUtfUdsPou`
 
 ## Author
 

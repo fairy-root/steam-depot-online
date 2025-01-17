@@ -1,4 +1,5 @@
 import asyncio
+import asyncio
 import aiohttp
 import aiofiles
 import os
@@ -19,8 +20,9 @@ class ManifestDownloader(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("Steam Depot Online (SDO)")
-        self.geometry("1400x730")  # Adjusted width to accommodate side-by-side layout
-        self.resizable(False, False)
+        self.geometry("1180x630")
+        self.minsize(1080, 590)
+        self.resizable(True, True)
 
         # Load repositories from JSON file
         self.repos = self.load_repositories()
@@ -52,23 +54,23 @@ class ManifestDownloader(ctk.CTk):
     def setup_ui(self):
         # Main container frame to hold left and right sections
         main_container = ctk.CTkFrame(self)
-        main_container.pack(fill="both", expand=True, padx=20, pady=10)
+        main_container.pack(fill="both", expand=True, padx=18, pady=9)
 
         # Left side (Main UI)
         left_frame = ctk.CTkFrame(main_container)
-        left_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
+        left_frame.pack(side="left", fill="both", expand=True, padx=(0, 9))
 
         # === Repository Selection Frame ===
-        repo_frame = ctk.CTkFrame(left_frame, corner_radius=10)
-        repo_frame.pack(padx=0, pady=10, fill="both", expand=False)
+        repo_frame = ctk.CTkFrame(left_frame, corner_radius=9)
+        repo_frame.pack(padx=0, pady=9, fill="both", expand=False)
 
         # Create a container frame to hold both Encrypted and Decrypted sections side-by-side
         repos_container = ctk.CTkFrame(repo_frame)
-        repos_container.pack(padx=10, pady=5, fill="both", expand=True)
+        repos_container.pack(padx=9, pady=4.5, fill="both", expand=True)
 
         # Left side (Encrypted Repositories)
         encrypted_frame = ctk.CTkFrame(repos_container)
-        encrypted_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
+        encrypted_frame.pack(side="left", fill="both", expand=True, padx=(0, 4.5))
 
         encrypted_label_frame = ctk.CTkFrame(encrypted_frame)
         encrypted_label_frame.pack(fill="x")
@@ -76,27 +78,27 @@ class ManifestDownloader(ctk.CTk):
             encrypted_label_frame,
             text="Encrypted Repositories:",
             text_color="cyan",
-            font=("Helvetica", 14),
+            font=("Helvetica", 12.6),
         )
-        encrypted_label.pack(padx=10, pady=(10, 5), side="left")
+        encrypted_label.pack(padx=9, pady=(9, 4.5), side="left")
 
         encrypted_select_all_button = ctk.CTkButton(
             encrypted_label_frame,
             text="Select All",
-            width=80,
+            width=72,
             command=lambda: self.toggle_all_repos("encrypted"),
         )
-        encrypted_select_all_button.pack(padx=70, pady=(10, 5), side="left")
+        encrypted_select_all_button.pack(padx=63, pady=(9, 4.5), side="left")
 
         # Store encrypted_scroll as a class attribute
         self.encrypted_scroll = ctk.CTkScrollableFrame(
-            encrypted_frame, width=400, height=150
+            encrypted_frame, width=360, height=135
         )
-        self.encrypted_scroll.pack(padx=10, pady=5, fill="both", expand=True)
+        self.encrypted_scroll.pack(padx=9, pady=4.5, fill="both", expand=True)
 
         # Right side (Decrypted Repositories)
         decrypted_frame = ctk.CTkFrame(repos_container)
-        decrypted_frame.pack(side="left", fill="both", expand=True, padx=(5, 0))
+        decrypted_frame.pack(side="left", fill="both", expand=True, padx=(4.5, 0))
 
         decrypted_label_frame = ctk.CTkFrame(decrypted_frame)
         decrypted_label_frame.pack(fill="x")
@@ -105,23 +107,23 @@ class ManifestDownloader(ctk.CTk):
             decrypted_label_frame,
             text="Decrypted Repositories:",
             text_color="cyan",
-            font=("Helvetica", 14),
+            font=("Helvetica", 12.6),
         )
-        decrypted_label.pack(padx=10, pady=(10, 5), side="left")
+        decrypted_label.pack(padx=9, pady=(9, 4.5), side="left")
 
         decrypted_select_all_button = ctk.CTkButton(
             decrypted_label_frame,
             text="Select All",
-            width=80,
+            width=72,
             command=lambda: self.toggle_all_repos("decrypted"),
         )
-        decrypted_select_all_button.pack(padx=70, pady=(10, 5), side="left")
+        decrypted_select_all_button.pack(padx=63, pady=(9, 4.5), side="left")
 
         # Store decrypted_scroll as a class attribute
         self.decrypted_scroll = ctk.CTkScrollableFrame(
-            decrypted_frame, width=400, height=150
+            decrypted_frame, width=360, height=135
         )
-        self.decrypted_scroll.pack(padx=10, pady=5, fill="both", expand=True)
+        self.decrypted_scroll.pack(padx=9, pady=4.5, fill="both", expand=True)
 
         # Create checkboxes in the correct frame
         for repo_name, repo_state in self.repos.items():
@@ -135,118 +137,133 @@ class ManifestDownloader(ctk.CTk):
                 cb = ctk.CTkCheckBox(
                     self.encrypted_scroll, text=repo_name, variable=var
                 )
-                cb.pack(anchor="w", padx=10, pady=2)
+                cb.pack(anchor="w", padx=9, pady=1.8)
             else:
                 cb = ctk.CTkCheckBox(
                     self.decrypted_scroll, text=repo_name, variable=var
                 )
-                cb.pack(anchor="w", padx=10, pady=2)
+                cb.pack(anchor="w", padx=9, pady=1.8)
             self.repo_vars[repo_name] = var
 
         # Add Repo Button
         add_repo_button = ctk.CTkButton(
             repo_frame,
             text="Add Repo",
+            width=90,
             command=self.open_add_repo_window,
         )
-        add_repo_button.pack(padx=10, pady=5, side="right")
+        add_repo_button.pack(padx=9, pady=4.5, side="right")
 
         # Delete Repo Button
         delete_repo_button = ctk.CTkButton(
             repo_frame,
             text="Delete Repo",
+            width=90,
             command=self.delete_repo,
         )
-        delete_repo_button.pack(padx=10, pady=5, side="right")
+        delete_repo_button.pack(padx=9, pady=4.5, side="right")
 
         # Info Button
         info_button = ctk.CTkButton(
             repo_frame,
             text="Info",
+            width=90,
             command=self.open_info_window,
         )
-        info_button.pack(padx=10, pady=5, side="right")
+        info_button.pack(padx=9, pady=4.5, side="right")
 
         # Label beside the Info button
         warning_label = ctk.CTkLabel(
             repo_frame,
             text="Games in encrypted repositories will not work.",
             text_color="orange",
-            font=("Helvetica", 18),
+            font=("Helvetica", 16.2),
         )
-        warning_label.pack(padx=10, pady=5, side="left")
+        warning_label.pack(padx=9, pady=4.5, side="left")
 
         # === Frame for Game Input ===
-        input_frame = ctk.CTkFrame(left_frame, corner_radius=10)
-        input_frame.pack(padx=0, pady=10, fill="x", expand=False)
+        input_frame = ctk.CTkFrame(left_frame, corner_radius=9)
+        input_frame.pack(padx=0, pady=9, fill="x", expand=False)
 
         input_label = ctk.CTkLabel(
             input_frame,
             text="Enter Game Name or AppID:",
             text_color="cyan",
-            font=("Helvetica", 16),
+            font=("Helvetica", 14.4),
         )
-        input_label.pack(padx=10, pady=5, anchor="w")
+        input_label.pack(padx=9, pady=4.5, anchor="w")
 
         self.game_input = ctk.CTkEntry(
-            input_frame, placeholder_text="e.g., 123456 or Game Name", width=500
+            input_frame,
+            placeholder_text="e.g. 123456 or Game Name",
+            width=270,
         )
-        self.game_input.pack(padx=10, pady=5, side="left", expand=True, fill="x")
+        self.game_input.pack(padx=9, pady=4.5, side="left", expand=True, fill="x")
 
         paste_button = ctk.CTkButton(
-            input_frame, text="Paste", command=self.paste_from_clipboard
+            input_frame,
+            text="Paste",
+            width=90,
+            command=self.paste_from_clipboard,
         )
-        paste_button.pack(padx=10, pady=5, side="left")
+        paste_button.pack(padx=9, pady=4.5, side="left")
 
         search_button = ctk.CTkButton(
-            input_frame, text="Search", command=self.search_game
+            input_frame,
+            text="Search",
+            width=90,
+            command=self.search_game,
         )
-        search_button.pack(padx=10, pady=5, side="left")
+        search_button.pack(padx=9, pady=4.5, side="left")
 
         # === Download Button ===
         self.download_button = ctk.CTkButton(
             input_frame,
-            text="Download",  # Renamed to "Download"
+            text="Download",
+            width=90,
             command=self.download_manifest,
             state="disabled",
         )
-        self.download_button.pack(padx=10, pady=5, side="left")
+        self.download_button.pack(padx=9, pady=4.5, side="left")
 
         # === Frame for Search Results ===
-        self.results_frame = ctk.CTkFrame(left_frame, corner_radius=10)
-        self.results_frame.pack(padx=0, pady=10, fill="both", expand=False)
+        self.results_frame = ctk.CTkFrame(left_frame, corner_radius=9)
+        self.results_frame.pack(padx=0, pady=9, fill="both", expand=True)
 
         self.results_label = ctk.CTkLabel(
             self.results_frame,
             text="Search Results:",
             text_color="cyan",
-            font=("Helvetica", 16),
+            font=("Helvetica", 14.4),
         )
-        self.results_label.pack(padx=10, pady=5, anchor="w")
+        self.results_label.pack(padx=9, pady=4.5, anchor="w")
 
         self.results_var = ctk.StringVar(value=None)
         self.results_radio_buttons = []
 
         self.results_container = ctk.CTkScrollableFrame(
-            self.results_frame, width=860, height=100
+            self.results_frame, width=774, height=90
         )
-        self.results_container.pack(padx=10, pady=5)
+        self.results_container.pack(padx=9, pady=4.5, fill="both", expand=True)
 
         # Right side (Progress Section)
         right_frame = ctk.CTkFrame(main_container)
-        right_frame.pack(side="right", fill="both", expand=False, padx=(10, 0))
+        right_frame.pack(side="right", fill="both", expand=False, padx=(9, 0))
 
         # === Progress Text ===
-        progress_frame = ctk.CTkFrame(right_frame, corner_radius=10)
-        progress_frame.pack(padx=0, pady=10, fill="both", expand=True)
+        progress_frame = ctk.CTkFrame(right_frame, corner_radius=9)
+        progress_frame.pack(padx=0, pady=9, fill="both", expand=True)
 
         progress_label = ctk.CTkLabel(
-            progress_frame, text="Progress:", text_color="cyan", font=("Helvetica", 16)
+            progress_frame,
+            text="Progress:",
+            text_color="cyan",
+            font=("Helvetica", 14.4),
         )
-        progress_label.pack(padx=10, pady=5, anchor="w")
+        progress_label.pack(padx=9, pady=4.5, anchor="w")
 
-        text_container = ctk.CTkFrame(progress_frame, corner_radius=10)
-        text_container.pack(padx=10, pady=5, fill="both", expand=True)
+        text_container = ctk.CTkFrame(progress_frame, corner_radius=9)
+        text_container.pack(padx=9, pady=4.5, fill="both", expand=True)
 
         self.scrollbar = Scrollbar(text_container)
         self.scrollbar.pack(side="right", fill="y")
@@ -254,15 +271,15 @@ class ManifestDownloader(ctk.CTk):
         self.progress_text = Text(
             text_container,
             wrap="word",
-            height=200,
+            height=180,
             state="disabled",
             bg="#2B2B2B",
             fg="white",
             insertbackground="white",
             yscrollcommand=self.scrollbar.set,
-            font=("Helvetica", 12),
+            font=("Helvetica", 10),
         )
-        self.progress_text.pack(padx=5, pady=5, fill="both", expand=True)
+        self.progress_text.pack(padx=4.5, pady=4.5, fill="both", expand=True)
 
         self.scrollbar.config(command=self.progress_text.yview)
 
@@ -434,7 +451,7 @@ class ManifestDownloader(ctk.CTk):
             except Exception as e:
                 self.append_progress(f"\nFailed to write Lua script: {e}", "red")
 
-            self.zip_outcome(save_dir)
+            self.zip_outcome(save_dir, selected_repos)
         else:
             self.append_progress(
                 "\nNo depots collected. Download may have failed.", "red"
@@ -704,9 +721,23 @@ class ManifestDownloader(ctk.CTk):
                 lua_lines.append(f'setManifestid({depot_id},"{manifest_id}",0)')
         return "\n".join(lua_lines)
 
-    def zip_outcome(self, save_dir):
-        zip_path = f"{save_dir}.zip"
+    def zip_outcome(self, save_dir, selected_repos):
+        # Check if any of the selected repositories are encrypted
+        is_encrypted = any(self.repos[repo] == "Encrypted" for repo in selected_repos)
+
+        # Normalize the save_dir path to handle any inconsistencies
+        save_dir = os.path.normpath(save_dir)
+
+        # Append "encrypted" to the zip file name if any repository is encrypted
+        zip_name = (
+            os.path.basename(save_dir) + " - encrypted.zip"
+            if is_encrypted
+            else os.path.basename(save_dir) + ".zip"
+        )
+        zip_path = os.path.join(os.path.dirname(save_dir), zip_name)
+
         try:
+            # Create the zip file
             with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
                 for root, dirs, files in os.walk(save_dir):
                     for file in files:
@@ -714,6 +745,7 @@ class ManifestDownloader(ctk.CTk):
                         arcname = os.path.relpath(file_path, start=save_dir)
                         zipf.write(file_path, arcname)
 
+            # Delete the folder only after the zip file is successfully created
             def remove_folder(path):
                 for root, dirs, files in os.walk(path, topdown=False):
                     for file in files:
@@ -726,8 +758,8 @@ class ManifestDownloader(ctk.CTk):
             self.print_colored_ui("Folder deleted successfully!", "green")
         except FileNotFoundError:
             self.print_colored_ui("Folder not found.", "red")
-        except OSError:
-            self.print_colored_ui("Folder is not empty or could not be removed.", "red")
+        except OSError as e:
+            self.print_colored_ui(f"Error deleting folder: {e}", "red")
         self.print_colored_ui(f"\nZipped the outcome to {zip_path}", "cyan")
 
     def on_closing(self):
@@ -872,67 +904,133 @@ class ManifestDownloader(ctk.CTk):
         info_window.geometry("600x450")
         info_window.resizable(False, False)
 
-        # Create a CTkTextbox for scrollable and word-wrapped text
-        info_textbox = ctk.CTkTextbox(info_window, width=580, height=400, wrap="word")
+        # tkinter Text widget (not CTkTextbox) for rich text formatting
+        info_textbox = Text(
+            info_window,
+            wrap="word",
+            width=580,
+            height=400,
+            bg="#2B2B2B",  # Match the dark theme
+            fg="white",  # Text color
+            font=("Helvetica", 12),  # Default font and size
+            insertbackground="white",  # Cursor color
+        )
         info_textbox.pack(padx=10, pady=10, fill="both", expand=True)
 
-        # Info text
-        info_text = """
-        Steam Depot Online (SDO) - Version: 1.1
+        # Configure tags for text formatting
+        info_textbox.tag_configure("bold", font=("Helvetica", 12, "bold"))
+        info_textbox.tag_configure("italic", font=("Helvetica", 12, "italic"))
+        info_textbox.tag_configure(
+            "title", font=("Helvetica", 14, "bold"), foreground="cyan"
+        )
+        info_textbox.tag_configure("highlight", foreground="yellow")
+        info_textbox.tag_configure("normal", font=("Helvetica", 12))
 
-        Author: t.me/FairyRoot
+        # Info text with consistent formatting
+        info_text = [
+            ("Steam Depot Online (SDO) - Version: 1.2\n", "title"),
+            ("Author: ", "bold"),
+            ("FairyRoot\n\n", "highlight"),
+            ("1. Make sure to understand the following:\n", "bold"),
+            (
+                "   - If you just want the game, select all the decrypted repositories and deselect the encrypted ones. "
+                "The game will be downloaded if it is found in any repository.\n",
+                "normal",
+            ),
+            (
+                "   - If you want the latest updates, you can get the encrypted game and then replace the decryption keys.\n",
+                "normal",
+            ),
+            (
+                "   - Encrypted repositories have the latest manifests. (Games will not work)\n",
+                "normal",
+            ),
+            (
+                "   - Decrypted repositories have decryption keys. (Games are ready to play)\n\n",
+                "normal",
+            ),
+            (
+                "2. The encrypted repositories have hashed decryption keys. Their Lua files can be installed, "
+                "but the games won't run. They will show the error: 'The content is still encrypted.'\n",
+                "bold",
+            ),
+            (
+                "   - Possible Solutions: Find the same game from decrypted repositories and replace the decryption keys.\n",
+                "normal",
+            ),
+            (
+                "   - The decryption keys will work for depots with different Manifest IDs.\n\n",
+                "normal",
+            ),
+            (
+                "3. The encrypted Lua files from SWA Tool (with the .st format) can be installed, "
+                "and the decryption keys can be extracted after installing the game.\n\n",
+                "bold",
+            ),
+            (
+                "4. After some uses, the repositories may get rate-limited. Use a VPN to change your location after a few downloads.\n\n",
+                "bold",
+            ),
+            ("- Overview\n", "title"),
+            (
+                "This tool allows you to download and manage Steam manifests. It fetches manifest and key.vdf data from GitHub repositories, generates Lua scripts for decryption keys, "
+                "and saves them in a zip archive.\n\n",
+                "normal",
+            ),
+            ("- Features:\n", "title"),
+            ("- Add and delete GitHub repositories.\n", "normal"),
+            ("- Select from encrypted or decrypted repositories.\n", "normal"),
+            ("- Search for games by name or AppID using Steam's API.\n", "normal"),
+            (
+                "- Download game manifests and decryption keys from GitHub repositories.\n",
+                "normal",
+            ),
+            ("- Convert downloaded data into Lua scripts for SteamTools.\n", "normal"),
+            (
+                "- Zip the downloaded files and Lua script into a zip archive.\n\n",
+                "normal",
+            ),
+            ("- How to use:\n", "title"),
+            ("1. Add GitHub repositories containing Steam manifest files.\n", "normal"),
+            ("2. Enter a game name or AppID in the search box.\n", "normal"),
+            ("3. Select the desired game from the search results.\n", "normal"),
+            (
+                "4. Click 'Download Manifest' to begin downloading and processing the data.\n\n",
+                "normal",
+            ),
+            ("- Please note:\n", "title"),
+            (
+                "- If all repositories are selected, the priority is determined by their order in repositories.json.\n",
+                "normal",
+            ),
+            (
+                "- Ensure you have a stable internet connection for downloading data.\n",
+                "normal",
+            ),
+            ("- Be mindful of repository usage terms.\n", "normal"),
+            ("- This tool is provided as-is.\n\n", "normal"),
+            ("- Additional Information:\n", "title"),
+            (
+                "- Encrypted repositories require decryption keys to function properly.\n",
+                "normal",
+            ),
+            (
+                "- Games in encrypted repositories will not work without the correct keys.\n",
+                "normal",
+            ),
+            (
+                "- Always verify the integrity of downloaded files before use.\n",
+                "normal",
+            ),
+            ("- For support, contact the author via Telegram: ", "normal"),
+            ("t.me/FairyRoot.\n", "highlight"),
+        ]
 
-        1. make sure to understand the following:
-            - if you just want the game, then select all the decrypted repositories,
-                and deselect the encrypted ones. the game will get downloaded if it was 
-                found in any repository
-            - if you want the latest updates, you can get the encrypted game, then replace 
-                the decryption keys.
-            - Encrypted repositories have latest manifests. (Games will not work)
-            - Decrypted repositories have decryption keys. (Games ready to play)
-        2. The encrypted repositories have hashed decryption keys, their lua files can be installed, 
-                but the games won't run. they would show The content is still encrypted error.
-            - Possible Solutions: Find the same game from decrypted repositories, and replace 
-                the Decryption Keys.
-            - The Decryption Keys would work for the Depots with different Manifest ID.
-        3. The encrypted lua files from SWA Tool with the format .st can be installed, 
-                and the Decryption keys can be extracted after installing the game.
-        4. After some uses, the repositories get rate limited. Use a VPN to change your 
-                location after few downloads.
+        # Insert formatted text into the Text widget
+        for text, tag in info_text:
+            info_textbox.insert("end", text, tag)
 
-        This tool allows you to download and manage Steam manifests.
-        Fetches manifest and key.vdf data from GitHub repositories.
-        Generates Lua scripts for decryption keys, and saves them in a zip archive.
-
-        Features:
-        - Allows users to add and delete GitHub repositories.
-        - Provides options to select from encrypted or decrypted repositories.
-        - Searches for games by name or AppID using Steam's API.
-        - Downloads game manifests and decryption keys from GitHub repositories.
-        - Converts downloaded data into Lua scripts for SteamTools.
-        - Zips the downloaded files and Lua script into a zip archive.
-
-        How to use:
-        1. Add GitHub repositories containing Steam manifest files.
-        2. Enter a game name or AppID in the search box.
-        3. Select the desired game from the search results.
-        4. Click "Download Manifest" to begin downloading and processing the data.
-
-        Please note:
-        - if all repositories are selected, the priority is determined by their order in repositories.json.
-        - Ensure you have a stable internet connection for downloading data.
-        - Be mindful of repository usage terms.
-        - This tool is provided as-is.
-
-        Additional Information:
-        - Encrypted repositories require decryption keys to function properly.
-        - Games in encrypted repositories will not work without the correct keys.
-        - Always verify the integrity of downloaded files before use.
-        - For support, contact the author via Telegram: t.me/FairyRoot.
-        """
-
-        # Insert the info text into the textbox
-        info_textbox.insert("1.0", info_text.strip())
+        # Disable editing of the text widget
         info_textbox.configure(state="disabled")
 
         info_window.focus_force()
