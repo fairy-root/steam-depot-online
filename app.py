@@ -933,7 +933,7 @@ class ManifestDownloader(ctk.CTk):
 
         # Info text with consistent formatting
         info_text = [
-            ("Steam Depot Online (SDO) - Version: 1.2\n", "title"),
+            ("Steam Depot Online (SDO) - Version: 1.3\n", "title"),
             ("Author: ", "bold"),
             ("FairyRoot\n\n", "highlight"),
             ("1. Make sure to understand the following:\n", "bold"),

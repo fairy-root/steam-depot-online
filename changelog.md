@@ -1,5 +1,10 @@
 ## Changelog
 
+### version 1.3
+
+- made sure that AIodns uses SelectorEventLoop on Windows.
+- updated the game search since the SteamUI API has changed.
+
 ### Version 1.2
 
 - Made the UI elements resizable with the main window.
