@@ -11,6 +11,10 @@ from functools import partial
 from tkinter import END, Text, Scrollbar
 import customtkinter as ctk
 from tkinter import messagebox
+import sys
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -469,12 +473,13 @@ class ManifestDownloader(ctk.CTk):
         games = []
         page = 1
         limit = 100
+        search_term = search_term.replace(" ", "%20")
         while True:
             if self.cancel_search:
                 self.print_colored_ui("\nSearch cancelled by user.", "yellow")
                 return []
             try:
-                url = f"https://steamui.com/loadGames.php?search={search_term}&page={page}&limit={limit}"
+                url = f"https://steamui.com/loadGames.php?page={page}&search={search_term}"
                 async with aiohttp.ClientSession() as session:
                     async with session.get(url) as r:
                         if r.status == 200:
