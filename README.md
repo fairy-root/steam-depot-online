@@ -12,6 +12,7 @@
   <img src="imgs/ui.png" alt="SDO UI">
 </div>
 
+
 **Note**: update the manifests using this tool
 [Lua & St Manifest Updater](https://github.com/fairy-root/lua-st-manifest-updater)
 
@@ -84,6 +85,10 @@ cd steam-depot-online
 1. **make sure to understand the following**:
 
 - if you just want the game, then select all the decrypted repositories, and deselect the encrypted ones. the game will get downloaded if it was found in any repository
+
+- **Strict Validation Mode & Download Behavior**
+  - **Checked (Default)**: The tool will strictly require Key.vdf or config.vdf (found anywhere in the AppID branch) for a repository to be considered valid for an AppID. It prioritizes finding decryption keys and will download manifest files. If keys are found in a repo, it stops there. Key.vdf/config.vdf will NOT be included in the final ZIP.
+  - **Unchecked**: The tool will download the *full content* (all files and folders recursively) of the AppID's branch from the first repository where it's found. It will still attempt to parse Key.vdf/config.vdf if present within the downloaded content to extract keys for the LUA file. All downloaded files, including Key.vdf/config.vdf, WILL be included in the ZIP.
 
 - if you want the latest updates, you can get the encrypted game, then replace the decryption keys.
   - **Encrypted repositories** have latest manifests. (Games will not work)
