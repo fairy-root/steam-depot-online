@@ -14,7 +14,7 @@
 
 
 **Note**: update the manifests using this tool
-[Lua & St Manifest Updater](https://github.com/fairy-root/lua-st-manifest-updater)
+[Lua & St Manifest Updater](https://github.com/fairy-root/lua-manifest-updater)
 
 ---
 
