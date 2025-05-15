@@ -2,7 +2,6 @@
     "Fairyvmos/BlankTMing": "Encrypted",
     "sean-who/ManifestAutoUpdate": "Encrypted",
     "Fallonma/ManifestAutoUpdate_btm": "Encrypted",
-    "SteamAutoCracks/ManifestHub": "Decrypted",
     "ManifestHub/ManifestHub": "Decrypted",
     "ikun0014/ManifestHub": "Decrypted",
     "Auiowu/ManifestAutoUpdate": "Decrypted",
@@ -23,5 +22,6 @@
     "1271620983/ManifestAutoUpdate": "Decrypted",
     "crazzzzzysnail/ManifestAutoUpdate_fork": "Decrypted",
     "bluesxu/ManifestAutoUpdate": "Decrypted",
-    "3circledesign/BruhHub": "Branch"
+    "3circledesign/BruhHub": "Branch",
+    "SteamAutoCracks/ManifestHub": "Decrypted"
 }
