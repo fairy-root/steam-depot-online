@@ -6,14 +6,13 @@
 
 ## Overview
 
-**Steam Depot Online (SDO)** is a feature-rich tool for downloading and managing Steam manifests. This application fetches manifest and `key.vdf` data from GitHub repositories, generates Lua scripts for decryption keys, and compresses the outcome into a zip archive for easy access and sharing.
+**Steam Depot Online (SDO)** is a feature-rich tool for downloading and managing Steam game data. This application fetches manifests, `key.vdf` data, or entire game depot zips from GitHub repositories. For standard manifest/key downloads, it generates Lua scripts for decryption keys and compresses the outcome into a zip archive. For "Branch" type repositories, it downloads the game's pre-packaged zip directly.
 
 <div align="center">
   <img src="imgs/ui.png" alt="SDO UI">
 </div>
 
-
-**Note**: update the manifests using this tool
+**Note**: To update manifests within existing Lua files, consider using this tool:
 [Lua Manifest Updater](https://github.com/fairy-root/lua-manifest-updater)
 
 ---
@@ -21,22 +20,20 @@
 ## Features
 
 - **GitHub Repository Integration**:
-
-  - Add or delete repositories containing Steam manifest files.
-  - Support for encrypted and decrypted repositories with selection toggles.
+  - Add or delete repositories containing Steam game data.
+  - Support for **Encrypted**, **Decrypted**, and **Branch** repository types with selection toggles.
 
 - **Search Functionality**:
-
-  - Search for games by name or AppID via Steam's API.
+  - Search for games by name or AppID.
   - Displays matching results with game names and AppIDs for user selection.
 
-- **Manifest and Key Download**:
+- **Flexible Download Options**:
+  - **Encrypted/Decrypted Repos**: Fetches manifests and `key.vdf` files. Generates Lua scripts for use with Steam emulators.
+  - **Branch Repos**: Downloads a direct `.zip` archive of an AppID's branch from GitHub (e.g., `AppID.zip`).
 
-  - Fetches manifests and `key.vdf` files from selected repositories.
-  - Generates Lua scripts for use with SteamTools.
-
-- **Archive Packaging**:
-  - Saves Lua scripts and manifests into zip files for easy management.
+- **Output Packaging**:
+  - **Encrypted/Decrypted Repos**: Saves Lua scripts and downloaded files (manifests, etc.) into a final zip archive (`./Games/{GameName}-{AppID}.zip`).
+  - **Branch Repos**: Saves the directly downloaded GitHub zip as (`./Games/{GameName}-{AppID}.zip`).
 
 ---
 
@@ -44,12 +41,12 @@
 
 ### Prerequisites
 
-1. Install Python 3.8 or higher.
-2. Install the required dependencies:
+1.  Install Python 3.8 or higher.
+2.  Install the required dependencies:
 
-   ```bash
-   pip install asyncio aiohttp aiofiles customtkinter vdf
-   ```
+    ```bash
+    pip install asyncio aiohttp aiofiles customtkinter vdf
+    ```
 
 ### Clone the Repository
 
@@ -62,43 +59,56 @@ cd steam-depot-online
 
 ## Usage
 
-1. **Run the Tool**:
+1.  **Run the Tool**:
 
-   ```bash
-   python app.py
-   ```
+    ```bash
+    python app.py
+    ```
+    (Or `python3 app.py` depending on your Python setup)
 
-2. **Features Explained**:
+2.  **Features Explained**:
+    - Add GitHub repositories by clicking "Add Repo". Provide the repository name (e.g., `user/repo`) and select its type: **Encrypted**, **Decrypted**, or **Branch**.
+    - Search for games using their name or AppID.
+    - Select desired repositories for searching. Use "Select All" or individual checkboxes for each repository type.
+        - By default, only "Decrypted" repositories are selected.
+    - Configure "Strict Validation" (applies only to Encrypted/Decrypted types).
+    - Select a game from the search results.
+    - Click "Download".
 
-   - Add GitHub repositories for manifest data by clicking "Add Repo" and providing the repository name and type (Encrypted or Decrypted).
-   - Search for games using their name or AppID in the search bar.
-   - Select repositories and toggle between "Select All" or individual options for Encrypted or Decrypted types.
-   - Begin downloading manifests for the selected game and repository via the "Download Manifest" button.
-
-3. **Output**:
-   - Lua scripts and manifests will be saved in the `Games/` directory and zipped automatically.
+3.  **Output**:
+    - All successful downloads will result in a file named `{GameName}-{AppID}.zip` (or similar if encrypted) located in the `./Games/` directory.
+    - **For Encrypted/Decrypted Repos**: The zip contains downloaded files (manifests, VDFs if non-strict) and the generated `.lua` script.
+    - **For Branch Repos**: The zip is the direct archive downloaded from the GitHub branch.
 
 ---
 
 ## Notes
 
-1. **make sure to understand the following**:
+1.  **Understanding Repository Types & Download Behavior**:
 
-- if you just want the game, then select all the decrypted repositories, and deselect the encrypted ones. the game will get downloaded if it was found in any repository
+    -   **Decrypted Repositories (Checked by Default)**:
+        -   Contain necessary decryption keys. Games are generally ready to play.
+        -   The tool downloads manifests and keys, generates a `.lua` script, and zips these into the final output.
+    -   **Encrypted Repositories (Unchecked by Default)**:
+        -   May have the latest game manifests but decryption keys are often hashed/invalid.
+        -   The tool downloads manifests and keys, generates a `.lua` script (which might be minimal or require manual key replacement), and zips these. Games downloaded solely from here likely won't work directly ("Content is still encrypted" error).
+    -   **Branch Repositories (Unchecked by Default)**:
+        -   Provide a direct `.zip` download of an AppID's entire branch from GitHub.
+        -   The tool saves this downloaded GitHub zip *as is* to the final output path.
+        -   Strict Validation does *not* apply to Branch repositories.
+    -   **If you just want a playable game**: Prioritize selecting "Decrypted" repositories. "Branch" repositories can also provide ready-to-use game data if the repository maintainer packages them correctly.
+    -   **If you want the latest updates (and are willing to manually manage keys)**: "Encrypted" repositories might have the newest manifests. You would then need to source decryption keys elsewhere. or you can use the [Lua Manifest Updater](https://github.com/fairy-root/lua-manifest-updater)
 
-- **Strict Validation Mode & Download Behavior**
-  - **Checked (Default)**: The tool will strictly require Key.vdf or config.vdf (found anywhere in the AppID branch) for a repository to be considered valid for an AppID. It prioritizes finding decryption keys and will download manifest files. If keys are found in a repo, it stops there. Key.vdf/config.vdf will NOT be included in the final ZIP.
-  - **Unchecked**: The tool will download the *full content* (all files and folders recursively) of the AppID's branch from the first repository where it's found. It will still attempt to parse Key.vdf/config.vdf if present within the downloaded content to extract keys for the LUA file. All downloaded files, including Key.vdf/config.vdf, WILL be included in the ZIP.
+2.  **Strict Validation Mode (Applies ONLY to Encrypted/Decrypted Repositories)**:
+    -   **Checked (Default)**: The tool will strictly require `Key.vdf` or `config.vdf` to be present in the AppID's branch for that repository to be considered valid. It prioritizes finding decryption keys and will download manifest files. If keys are found in a repo, processing for that AppID (from that repo type) stops there. `Key.vdf`/`config.vdf` will **NOT** be included in the final tool-generated ZIP.
+    -   **Unchecked**: The tool will download the *full content* (all files and folders recursively) of the AppID's branch from the first repository where it's found. It will still attempt to parse `Key.vdf`/`config.vdf` if present within the downloaded content to extract keys for the `.lua` file. All downloaded files, including `Key.vdf`/`config.vdf`, **WILL** be included in the tool-generated ZIP.
 
-- if you want the latest updates, you can get the encrypted game, then replace the decryption keys.
-  - **Encrypted repositories** have latest manifests. (Games will not work)
-  - **Decrypted repositories** have decryption keys. (Games ready to play)
+3.  **"Content is still encrypted" Error (for non-Branch downloads)**:
+    -   This means game files were downloaded but lack valid decryption keys in the generated `.lua` file.
+    -   **Possible Solutions**: Try finding the game in a "Decrypted" repository, or manually source and replace the `DecryptionKey` values in the `.lua` file. Decryption keys for a specific depot ID are usually valid across different manifest IDs for that same depot.
 
-2. The **encrypted repositories** have hashed decryption keys, their lua files can be installed, but the games won't run. they would show `The content is still encrypted error`.
-   - **Possible Solutions**: Find the same game from decrypted repositories, and replace the **Decryption Keys**.
-   - The **Decryption Keys** would work for the **Depots** with different **Manifest ID**.
-3. The encrypted lua files from **SWA Tool** with the format \*.st can be installed, and the Decryption keys can be extracted after installing the game.
-4. After some uses, the repositories get **rate limited**. Use a **VPN** to change your location after few downloads.
+4.  **Rate Limiting**:
+    -   GitHub may rate-limit your IP address after extensive use (60 requests per minute). Using a VPN to change your location can help.
 
 ---
 
@@ -110,15 +120,15 @@ See the [Changelog](changelog.md) file for more details.
 
 Your support is appreciated:
 
-- **USDt (TRC20)**: `TGCVbSSJbwL5nyXqMuKY839LJ5q5ygn2uS`
-- **BTC**: `13GS1ixn2uQAmFQkte6qA5p1MQtMXre6MT`
-- **ETH (ERC20)**: `0xdbc7a7dafbb333773a5866ccf7a74da15ee654cc`
-- **LTC**: `Ldb6SDxUMEdYQQfRhSA3zi4dCUtfUdsPou`
+-   **USDt (TRC20)**: `TGCVbSSJbwL5nyXqMuKY839LJ5q5ygn2uS`
+-   **BTC**: `13GS1ixn2uQAmFQkte6qA5p1MQtMXre6MT`
+-   **ETH (ERC20)**: `0xdbc7a7dafbb333773a5866ccf7a74da15ee654cc`
+-   **LTC**: `Ldb6SDxUMEdYQQfRhSA3zi4dCUtfUdsPou`
 
 ## Author
 
-- **GitHub**: [FairyRoot](https://github.com/fairy-root)
-- **Telegram**: [@FairyRoot](https://t.me/FairyRoot)
+-   **GitHub**: [FairyRoot](https://github.com/fairy-root)
+-   **Telegram**: [@FairyRoot](https://t.me/FairyRoot)
 
 ## Contributing
 
@@ -127,5 +137,3 @@ If you would like to contribute to this project, feel free to fork the repositor
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----

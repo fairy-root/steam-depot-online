@@ -1,5 +1,46 @@
 ## Changelog
 
+### Version 1.5.3 (Cumulative Update)
+
+**Core Feature: Branch Repository Type & Distinct Download Path**
+*   Introduced a new repository type: **"Branch"**.
+    *   When a "Branch" repository is selected and successfully provides data for an AppID:
+        *   The application downloads a direct `.zip` archive.
+        *   The downloaded GitHub zip is saved *directly* as `./Games/{GameName}-{AppID}.zip`.
+        *   **No further processing occurs for Branch types:** No `.lua` script is generated from its contents by this tool, and no additional outer zip is created. The output is the raw downloaded GitHub zip.
+    *   Strict Validation explicitly does *not* apply to Branch repositories.
+*   Added a third section in the UI for "Branch Repositories" with its own "Select All" toggle.
+*   Updated "Add Repo" window to include "Branch" as a repository state option.
+
+**Default Selections & UI Adjustments**
+*   Modified `refresh_repo_checkboxes` so that only "Decrypted" repositories are checked by default. "Encrypted" and "Branch" repositories are now unchecked by default.
+*   Adjusted UI layout in `setup_ui` to accommodate the new "Branch Repositories" section, resizing other repository sections slightly.
+*   Updated the "Strict Validation" checkbox label to clarify it applies to "Non-Branch Repos".
+
+**Download & Processing Logic Refinements**
+*   Refactored `_perform_download_operations`:
+    *   Handles the distinct download and save logic for "Branch" type repositories, saving them directly to their final named zip location in `./Games/`.
+    *   For non-Branch types, it continues to create a temporary processing directory (`./Games/{GameName}-{AppID}/`) for downloading files and generating Lua scripts.
+*   Modified `async_download_and_process`:
+    *   Correctly interprets the `output_path_or_processing_dir` and `source_was_branch` flags from `_perform_download_operations`.
+    *   Skips Lua generation and `zip_outcome` calls if `source_was_branch` is true, and provides appropriate user feedback.
+    *   Calls `zip_outcome` only for successful non-Branch repository downloads.
+*   Removed `_parse_vdfs_from_standalone_zip` and `_extract_zip_to_save_dir` as they are no longer needed with the simplified direct download for Branch types.
+*   The `parse_vdf_to_lua` function is now only relevant for non-Branch downloads.
+*   The `zip_outcome` function is now only relevant for non-Branch downloads, zipping the contents of the temporary processing directory into the final `./Games/{GameName}-{AppID}.zip`.
+
+**Info Window & User Guidance**
+*   Significantly updated the Info window (`open_info_window`) text to:
+    *   Clearly explain the new "Branch" repository type, its download behavior (direct GitHub zip), and its output format.
+    *   Detail how "Encrypted" and "Decrypted" repositories are handled (Lua generation, tool-created zip).
+    *   Clarify that "Strict Validation" only applies to non-Branch repository types.
+    *   Reflect changes in default repository selections.
+    *   Update overview and feature descriptions.
+
+**Code Cleanup & Robustness**
+*   Improved clarity in variable naming related to output paths and processing directories.
+*   Ensured consistent creation of the base `./Games/` output directory.
+
 ### Version 1.4.2 (Cumulative Update)
 
 **Core Feature: Strict Validation Mode & Download Behavior**
