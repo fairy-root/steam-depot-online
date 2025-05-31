@@ -1,5 +1,23 @@
 ## Changelog
 
+### Version 1.5.5 (Cumulative Update)
+
+**User Interface & Progress Display**
+*   **Enhanced Progress Clearing:** Implemented a more precise clearing mechanism for the "Progress" area.
+    *   When a new game search is initiated or a game is selected from results, only the "dynamic" content (previous search results, selection messages, and game details) is cleared. Initial "App List Loading" messages remain.
+    *   When a download operation is initiated, the *entire* "Progress" area is now fully cleared, providing a fresh log for the download process, and then the initial app list status is re-appended for context.
+*   **Intelligent Image/Details Display:**
+    *   Images (logo, header) are now only displayed in the "Progress" area if they are successfully downloaded. 404 (Not Found) errors for images no longer clutter the output.
+    *   Detailed game text information (description, genres, release date) is only displayed if successfully retrieved from the Steam API. If the API call fails or returns no relevant data, the section is skipped, preventing "No detailed text information found" messages from appearing when there's genuinely no data.
+*   **Image Handling Improvement:** Addressed the `CTkLabel` warning by using `customtkinter.CTkImage` to wrap `PIL.Image.Image` objects for better HighDPI scaling and integration with CustomTkinter.
+
+**Repository Management**
+*   **Corrected "Select All" Toggle:** The `toggle_all_repos` logic has been fixed to correctly determine if all relevant repositories of a specific type are already selected before toggling their state, ensuring predictable behavior.
+
+**Code Quality & Stability**
+*   **Synchronous UI Updates:** Refined `append_progress` and clearing operations to ensure they execute synchronously on the main UI thread when needed, resolving issues where messages appeared out of order due to asynchronous scheduling.
+*   Improved handling of potential network and API errors to gracefully skip missing assets or data without crashing.
+
 ### Version 1.5.3 (Cumulative Update)
 
 **Core Feature: Branch Repository Type & Distinct Download Path**

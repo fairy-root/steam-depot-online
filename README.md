@@ -45,8 +45,17 @@
 2.  Install the required dependencies:
 
     ```bash
-    pip install asyncio aiohttp aiofiles customtkinter vdf
+    pip install asyncio aiohttp aiofiles customtkinter vdf pillow
     ```
+
+3. Install via requirements file
+
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+---
+
 
 ### Clone the Repository
 

@@ -1,0 +1,6 @@
+asyncio
+aiohttp
+aiofiles
+customtkinter
+vdf
+pillow
