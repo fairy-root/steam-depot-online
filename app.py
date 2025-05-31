@@ -1857,7 +1857,7 @@ class ManifestDownloader(ctk.CTk):
             ("t.me/FairyRoot\n\n", "url"),
             ("Overview:\n", "subtitle"),
             (
-                "SDO fetches Steam game data from GitHub repositories. For 'Encrypted' and 'Decrypted' repo types, it can generate Lua scripts (for emulators) and zips the results. For 'Branch' repo types, it downloads and saves the GitHub branch zip directly. All successful outputs are placed in:\n`./Games/{GameName}-{AppID}.zip`\n\n",
+                "SDO fetches Steam game data from GitHub repositories. For 'Encrypted' and 'Decrypted' repo types, it can generate Lua scripts and zips the results. For 'Branch' repo types, it downloads and saves the GitHub branch zip directly. All successful outputs are placed in:\n`./Games/{GameName}-{AppID}.zip`\n\n",
                 "normal",
             ),
             ("Key Features:\n", "subtitle"),

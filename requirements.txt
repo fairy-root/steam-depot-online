@@ -1,6 +1,6 @@
 asyncio
 aiohttp
+pillow
 aiofiles
 customtkinter
 vdf
-pillow

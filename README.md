@@ -12,7 +12,7 @@
   <img src="imgs/ui.png" alt="SDO UI">
 </div>
 
-**Note**: To update manifests within existing Lua files, consider using this tool:
+**Note**: To update manifests , consider using this tool:
 [Lua Manifest Updater](https://github.com/fairy-root/lua-manifest-updater)
 
 ---
