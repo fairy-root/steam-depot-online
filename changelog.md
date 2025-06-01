@@ -1,7 +1,5 @@
 ## Changelog
 
-## Changelog
-
 ### Version 2.0.0 (Cumulative Update)
 
 **Major Features & User Experience**
