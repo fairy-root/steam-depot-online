@@ -8,11 +8,13 @@
 
 **Steam Depot Online (SDO)** is a feature-rich tool for downloading and managing Steam game data. This application fetches manifests, `key.vdf` data, or entire game depot zips from GitHub repositories. For standard manifest/key downloads, it generates Lua scripts for decryption keys and compresses the outcome into a zip archive. For "Branch" type repositories, it downloads the game's pre-packaged zip directly.
 
+**Version 2.0.0 introduces significant enhancements including persistent settings, multi-language support, an integrated update checker, batch downloading of AppIDs, and a dedicated tab to manage downloaded manifests.**
+
 <div align="center">
   <img src="imgs/ui.png" alt="SDO UI">
 </div>
 
-**Note**: To update manifests , consider using this tool:
+**Note**: To update manifests, consider using this tool:
 [Lua Manifest Updater](https://github.com/fairy-root/lua-manifest-updater)
 
 ---
@@ -22,18 +24,43 @@
 - **GitHub Repository Integration**:
   - Add or delete repositories containing Steam game data.
   - Support for **Encrypted**, **Decrypted**, and **Branch** repository types with selection toggles.
+  - **Your repository selections are now saved and restored between sessions.**
+  - **Export and Import** your entire repository list to/from a JSON file via settings.
 
 - **Search Functionality**:
   - Search for games by name or AppID.
-  - Displays matching results with game names and AppIDs for user selection.
+  - Displays matching results with game names, AppIDs, and **small game capsule images** for easier identification.
 
 - **Flexible Download Options**:
+  - **Single Game Download**: Download the game selected from search results.
+  - **Batch AppID Download**: Enter multiple AppIDs (separated by commas or newlines) in the input field, and the tool will download them sequentially.
   - **Encrypted/Decrypted Repos**: Fetches manifests and `key.vdf` files. Generates Lua scripts for use with Steam emulators.
   - **Branch Repos**: Downloads a direct `.zip` archive of an AppID's branch from GitHub (e.g., `AppID.zip`).
 
 - **Output Packaging**:
-  - **Encrypted/Decrypted Repos**: Saves Lua scripts and downloaded files (manifests, etc.) into a final zip archive (`./Games/{GameName}-{AppID}.zip`).
-  - **Branch Repos**: Saves the directly downloaded GitHub zip as (`./Games/{GameName}-{AppID}.zip`).
+  - All successful downloads result in a file named `{GameName}-{AppID}.zip` (or similar if encrypted) located in your configured download directory.
+  - **Encrypted/Decrypted Repos**: The zip contains downloaded files (manifests, VDFs if non-strict) and the generated `.lua` script.
+  - **Branch Repos**: The zip is the direct archive downloaded from the GitHub branch.
+
+- **Persistent Application Settings**:
+  - Your window size, theme, download path, strict validation preference, and repository selections are **automatically saved and loaded**.
+
+- **Multi-language Support (Localization)**:
+  - Change the application's display language via the settings.
+  - Supports adding custom translation files (JSON format) in the `lang/` directory.
+
+- **Integrated Update Checker**:
+  - Automatically checks for new SDO versions on startup (configurable in settings).
+  - Manually check for updates anytime from the settings window.
+
+- **Downloaded Manifests Tab**:
+  - A new tab providing a clear list of all successfully downloaded game `.zip` files in your output directory.
+  - Quickly open the downloaded zip with your default app.
+
+- **Enhanced UI Navigation & Control**:
+  - **Quick Output Folder Access**: A dedicated button to open the configured download folder.
+  - **Informative Tooltips**: Hover over UI elements for helpful descriptions.
+  - **Keyboard Shortcuts**: Ctrl+V to paste, Enter to search.
 
 ---
 
@@ -45,14 +72,9 @@
 2.  Install the required dependencies:
 
     ```bash
-    pip install asyncio aiohttp aiofiles customtkinter vdf pillow
-    ```
-
-3. Install via requirements file
-
-    ```bash
     pip install -r requirements.txt
     ```
+    (Alternatively: `pip install asyncio aiohttp aiofiles customtkinter vdf pillow`)
 
 ---
 
@@ -76,18 +98,22 @@ cd steam-depot-online
     (Or `python3 app.py` depending on your Python setup)
 
 2.  **Features Explained**:
-    - Add GitHub repositories by clicking "Add Repo". Provide the repository name (e.g., `user/repo`) and select its type: **Encrypted**, **Decrypted**, or **Branch**.
-    - Search for games using their name or AppID.
-    - Select desired repositories for searching. Use "Select All" or individual checkboxes for each repository type.
-        - By default, only "Decrypted" repositories are selected.
-    - Configure "Strict Validation" (applies only to Encrypted/Decrypted types).
-    - Select a game from the search results.
+    - **Add GitHub repositories** by clicking "Add Repo". Provide the repository name (e.g., `user/repo`) and select its type: **Encrypted**, **Decrypted**, or **Branch**.
+    - **Select desired repositories** for searching/downloading. Use "Select All" buttons or individual checkboxes for each repository type. Your selections will be saved automatically.
+    - **Configure "Strict Validation"** (applies only to Encrypted/Decrypted types). This setting is also saved.
+    - **Enter a game name or AppID** in the input field. For batch download, you can enter multiple AppIDs separated by commas or newlines.
+    - Click "Search" to find games by name/AppID and see results.
+    - Choose your download mode:
+        - **"Selected game in search results"**: Downloads the game you've clicked on from the search results.
+        - **"All AppIDs in input field"**: Downloads all AppIDs currently typed into the input field (useful for batch operations).
     - Click "Download".
 
-3.  **Output**:
-    - All successful downloads will result in a file named `{GameName}-{AppID}.zip` (or similar if encrypted) located in the `./Games/` directory.
+3.  **Output & Management**:
+    - All successful downloads will result in a file named `{GameName}-{AppID}.zip` (or similar if encrypted) located in the `./Games/` directory by default.
     - **For Encrypted/Decrypted Repos**: The zip contains downloaded files (manifests, VDFs if non-strict) and the generated `.lua` script.
     - **For Branch Repos**: The zip is the direct archive downloaded from the GitHub branch.
+    - Access the **"Downloaded Manifests" tab** to see a list of your downloaded zips and quickly open their location.
+    - Change your default download folder and other application preferences via the **"Settings"** button.
 
 ---
 
@@ -95,16 +121,17 @@ cd steam-depot-online
 
 1.  **Understanding Repository Types & Download Behavior**:
 
-    -   **Decrypted Repositories (Checked by Default)**:
-        -   Contain necessary decryption keys. Games are generally ready to play.
+    -   **Decrypted Repositories**:
+        -   Usually contain necessary decryption keys. Games are generally ready to play.
         -   The tool downloads manifests and keys, generates a `.lua` script, and zips these into the final output.
-    -   **Encrypted Repositories (Unchecked by Default)**:
-        -   May have the latest game manifests but decryption keys are often hashed/invalid.
+    -   **Encrypted Repositories**:
+        -   May have the latest game manifests but decryption keys within their `key.vdf`/`config.vdf` might be hashed, partial, or invalid.
         -   The tool downloads manifests and keys, generates a `.lua` script (which might be minimal or require manual key replacement), and zips these. Games downloaded solely from here likely won't work directly ("Content is still encrypted" error).
-    -   **Branch Repositories (Unchecked by Default)**:
+    -   **Branch Repositories**:
         -   Provide a direct `.zip` download of an AppID's entire branch from GitHub.
         -   The tool saves this downloaded GitHub zip *as is* to the final output path.
         -   Strict Validation does *not* apply to Branch repositories.
+        -   **Default Selection**: When a new repository is added or loaded for the first time without a saved selection state, only "Branch" type repositories will be selected by default.
     -   **If you just want a playable game**: Prioritize selecting "Decrypted" repositories. "Branch" repositories can also provide ready-to-use game data if the repository maintainer packages them correctly.
     -   **If you want the latest updates (and are willing to manually manage keys)**: "Encrypted" repositories might have the newest manifests. You would then need to source decryption keys elsewhere. or you can use the [Lua Manifest Updater](https://github.com/fairy-root/lua-manifest-updater)
 

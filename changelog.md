@@ -1,5 +1,54 @@
 ## Changelog
 
+## Changelog
+
+### Version 2.0.0 (Cumulative Update)
+
+**Major Features & User Experience**
+*   **Batch Download by AppID:** Introduced a new option to download multiple AppIDs specified in the input field. The application can automatically detect multiple AppIDs and switch to this mode, processing each one sequentially.
+*   **Persistent Settings:** Your application preferences are now saved and loaded automatically, including:
+    *   Window size and position.
+    *   Selected appearance mode (Dark/Light/System).
+    *   Selected color theme (Blue/Green/Dark-blue).
+    *   Default download path.
+    *   Strict validation checkbox state.
+    *   **Crucially, the selection state of your repositories (which ones are checked/unchecked) is now saved and restored.**
+*   **Localization (Multi-language Support):** The application now supports multiple languages for its user interface.
+    *   A new "App Language" setting in the "General Settings" tab allows you to switch between available translations.
+    *   A `lang` folder is created if it doesn't exist to store translation files (e.g., `en.json`, `fr.json`).
+*   **Application Update Checker:**
+    *   Automatically checks for new versions of SDO on startup (configurable via settings).
+    *   A "Check for Updates Now" button is available in the settings for manual checks.
+*   **Dedicated "Downloaded Manifests" Tab:** A new tab next to "Progress" to list all downloaded `.zip` outcomes.
+    *   Displays game name, AppID, and allows quick opening of the `.zip` file's location in your file explorer.
+    *   Includes a "Refresh List" button to rescan the download folder.
+*   **Repository Import/Export:** Added buttons in "Settings > Repositories" to export your current list of repositories to a `repositories.json` file, or import repositories from an existing file (merging with current ones).
+*   **Informative Tooltips:** Many UI elements now have helpful tooltips to explain their function, improving discoverability.
+*   **Game Capsule Images in Search Results:** Search results now display a small game capsule image next to each entry, making it easier to identify games.
+*   **Quick Output Folder Access:** A new "Output Folder" button directly opens the configured download directory in your file explorer.
+*   **Keyboard Shortcuts:**
+    *   Ctrl+V: Paste content into the "Enter Game Name or AppID" field.
+    *   Enter: Initiate a search from the "Enter Game Name or AppID" field.
+
+**Enhancements & Improvements**
+*   **Streamlined Settings Window:** The "Info" window has been integrated into a new comprehensive "Settings" window, now featuring multiple tabs: "General Settings", "Repositories", and "About".
+*   **Flexible Download Path:** The default download location (`./Games`) can now be easily changed via the "General Settings" tab.
+*   **Enhanced Image Downloading:** The underlying image download logic (`_download_image_async`) has been improved to use independent `aiohttp.ClientSession` instances for each image, enhancing concurrency and reliability.
+*   **Centralized UI Text Refresh:** Implemented a new mechanism (`_refresh_ui_texts`) to update all UI text elements instantly when the application language is changed, ensuring a consistent experience.
+*   **More Robust File/Directory Naming:** Improved sanitization of game names for creating output folders and zip files, handling special characters more gracefully.
+*   **Refined Progress Clearing:** The progress area clearing logic (`_clear_and_reinitialize_progress_area`) has been fine-tuned:
+    *   Game search clears only dynamic content while preserving initial messages.
+    *   Download operations now fully clear the progress log for a fresh view of the download process.
+*   **Repository Selection Persistence:** Individual repository checkbox selection states are now saved to `settings.json` and restored on startup, and update in real-time when changed.
+*   **Image Display Optimization:** Game logo image display size adjusted for better presentation in the progress log.
+*   **Lua Script Generation:** The `parse_vdf_to_lua` function now includes sorting of manifest files for more consistent output.
+
+**Bug Fixes**
+*   Addressed potential issues where image downloads for game details might not correctly return `None` on 404 responses.
+*   Improved error handling during `repositories.json` loading and saving, preventing crashes and gracefully using default values.
+*   Fixed an issue where "Select All" buttons for repositories might not correctly toggle all checkboxes under certain conditions.
+*   **Critical Fix for Localization Function:** Resolved `TypeError: 'list' object is not callable` in `zip_outcome` and other functions by renaming a conflicting loop variable in `parse_vdf_to_lua` to avoid overwriting the global translation function (`_`).
+
 ### Version 1.5.5 (Cumulative Update)
 
 **User Interface & Progress Display**
