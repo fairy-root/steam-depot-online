@@ -1,5 +1,53 @@
 ## Changelog
 
+### Version 2.0.2 (Cumulative Update)
+
+**New Major Features & Enhancements**
+*   **GitHub API Token Integration:**
+    *   Added an option in "General Settings" to input a GitHub Personal Access Token (PAT).
+    *   A "Use Token" checkbox allows enabling/disabling the token for GitHub API requests.
+    *   When enabled, the token is used for fetching repository branch/tree data and downloading "Branch" type repository zips, significantly increasing API rate limits and potentially allowing access to private repositories (if the token has appropriate permissions).
+    *   The token is stored locally in the `settings.json` file.
+*   **GitHub API Rate Limit Checker:**
+    *   New UI section in "General Settings > GitHub API Token" to check the current GitHub API rate limit.
+    *   Displays "Remaining/Total" requests and indicates if the check was authenticated (using the token) or unauthenticated (IP-based).
+*   **Revamped Non-Branch Repository Processing (Encrypted/Decrypted):**
+    *   These repository types now fetch file listings (tree) and individual files (blobs) directly via the GitHub API. This is more efficient than downloading an entire branch zip for processing, especially for large repositories or when only specific key/manifest files are needed.
+    *   Improved logic to locate `key.vdf`, `config.vdf`, and `.manifest` files within the repository structure based on the API tree.
+    *   Warns if the GitHub API returns a "truncated" file tree, which might result in some files being missed.
+*   **Improved "Branch" Repository Downloads:**
+    *   "Branch" type repositories now download their AppID-named branch zips using the GitHub API's `/zipball/` endpoint. This method respects the configured GitHub API token, improving download reliability and rate limits.
+*   **Enhanced Language System & UI Refresh:**
+    *   Tab titles ("Progress," "Downloaded Manifests") are now dynamically renamed when the application language is changed.
+    *   If the "Settings" window is open during a language change, it is automatically closed and reopened to fully apply the new language.
+    *   The internal list of recognized languages for translation has been significantly expanded (e.g., Chinese, German, Spanish, French, Japanese, Korean, Russian, and many more).
+*   **Refined File Handling & Lua Script Generation:**
+    *   The temporary processing directory for non-Branch downloads now uses a `_temp` suffix (e.g., `_GameName-AppID_temp`) and is automatically deleted after successful zipping.
+    *   Improved sorting and parsing of manifest filenames for `setManifestid` entries in Lua scripts, with better handling of non-numeric depot IDs.
+    *   In strict validation mode, `key.vdf` is now prioritized over `config.vdf` for key extraction.
+
+**Improvements & User Experience**
+*   **Reliable GitHub File Downloads:** The underlying function for fetching individual files from GitHub (`get()`) now uses the configured API token for `raw.githubusercontent.com` requests and includes more robust CDN fallback logic.
+*   **Optimized VDF Handling:** The system now better prioritizes existing local `key.vdf`/`config.vdf` files if they are readable, avoiding unnecessary re-downloads for non-Branch repositories.
+*   **Repository Management:**
+    *   Added basic 'owner/repository' format validation when adding new repositories.
+    *   More informative user messages during repository import/export operations.
+*   **Settings Management:**
+    *   More informative pop-up messages (Info, Warning, Error) for settings changes (e.g., appearance, theme, language, saving general settings).
+    *   Ensures the configured download path exists or can be created when saving general settings.
+*   **Application Update Checker:** Now utilizes the configured GitHub API token when checking for new SDO releases, improving reliability. Users are notified via a `messagebox` if an update is found.
+*   **"About" Tab Enhancements:**
+    *   Content significantly updated and expanded to detail new features like GitHub API token usage, the revised non-Branch repository processing, and clearer explanations of all repository types and strict validation.
+    *   Text within the "About" tab is now selectable for easy copying.
+*   **General UI:** Minor UI element adjustments (e.g., button heights in repository settings, focus management in the settings window).
+*   **Translation Function Renamed:** The global translation function has been changed from `_()` to `tr()` to prevent conflicts with common loop variables and improve code clarity.
+
+**Bug Fixes**
+*   Resolved a critical issue by renaming the internal global translation function from `_` to `tr` throughout the application. This prevents `TypeError` exceptions in various functions (like `zip_outcome`, `parse_vdf_to_lua`) where `_` might have been unintentionally shadowed by a loop variable.
+*   Corrected the lambda function in `refresh_repo_checkboxes` to ensure `_update_selected_repo_state` is called with the correct repository name and selection state.
+*   Improved error handling and logging for VDF parsing, GitHub API interactions, and file operations.
+*   Ensured `on_closing` correctly sets the `cancel_search` flag.
+
 ### Version 2.0.0 (Cumulative Update)
 
 **Major Features & User Experience**

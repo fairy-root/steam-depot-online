@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from io import BytesIO
 import subprocess
 import re
+from datetime import datetime, timezone
 
 # --- PIL Check ---
 try:
@@ -29,7 +30,7 @@ except ImportError:
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-# --- CustomTkinter Global Settings (default, can be overridden by settings) ---
+# --- CustomTkinter Global Settings ---
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
@@ -37,7 +38,7 @@ ctk.set_default_color_theme("blue")
 _LOC_MANAGER: Optional["LocalizationManager"] = None
 
 
-def _(text: str) -> str:
+def tr(text: str) -> str:
     """Translation lookup function."""
     if _LOC_MANAGER:
         return _LOC_MANAGER.get_string(text)
@@ -107,8 +108,6 @@ class SettingsManager:
         self._load_settings()
 
     def _load_settings(self) -> None:
-        """Loads settings from the JSON config file."""
-
         self._settings = {
             "window_geometry": "1320x750",
             "appearance_mode": "dark",
@@ -118,6 +117,8 @@ class SettingsManager:
             "selected_repos": {},
             "app_update_check_on_startup": True,
             "language": "en",
+            "github_api_token": "",
+            "use_github_api_token": False,
         }
         if os.path.exists(self.config_file):
             try:
@@ -132,12 +133,10 @@ class SettingsManager:
             try:
                 os.makedirs(configured_path, exist_ok=True)
             except OSError:
-
                 self._settings["download_path"] = os.path.join(os.getcwd(), "Games")
                 os.makedirs(self._settings["download_path"], exist_ok=True)
 
     def save_settings(self) -> None:
-        """Saves current settings to the JSON config file."""
         try:
             with open(self.config_file, "w", encoding="utf-8") as f:
                 json.dump(self._settings, f, indent=4)
@@ -145,11 +144,9 @@ class SettingsManager:
             pass
 
     def get(self, key: str, default: Any = None) -> Any:
-        """Gets a setting value."""
         return self._settings.get(key, default)
 
     def set(self, key: str, value: Any) -> None:
-        """Sets a setting value."""
         self._settings[key] = value
 
 
@@ -163,19 +160,13 @@ class LocalizationManager:
         self._load_all_translations()
 
     def _load_all_translations(self) -> None:
-        """
-        Loads all available translation files.
-        Expects JSON files named after language codes (e.g., 'en.json', 'fr.json')
-        to be present in the 'lang' directory.
-        If no files are found, it defaults to using the keys as strings.
-        """
         if not os.path.exists(self.lang_dir):
             os.makedirs(self.lang_dir, exist_ok=True)
             self.app.after(
                 100,
                 partial(
                     self.app.append_progress,
-                    _(
+                    tr(
                         "Warning: Language directory '{lang_dir}' not found. Created an empty one. Please add translation files."
                     ).format(lang_dir=self.lang_dir),
                     "yellow",
@@ -196,7 +187,7 @@ class LocalizationManager:
                         100,
                         partial(
                             self.app.append_progress,
-                            _("Error loading language file {filename}: {e}").format(
+                            tr("Error loading language file {filename}: {e}").format(
                                 filename=filename, e=e
                             ),
                             "red",
@@ -208,45 +199,78 @@ class LocalizationManager:
                 100,
                 partial(
                     self.app.append_progress,
-                    _(
+                    tr(
                         "Warning: No translation files found in '{lang_dir}' directory. Using default English keys."
                     ).format(lang_dir=self.lang_dir),
                     "yellow",
                 ),
             )
-
             if "en" not in self.translations:
                 self.translations["en"] = {}
 
     def get_string(self, key: str) -> str:
-        """Retrieves a translated string."""
         lang_translations = self.translations.get(self.current_language, {})
         return lang_translations.get(key, key)
 
     def set_language(self, lang_code: str) -> None:
-        """Sets the current language and updates the UI."""
-        if lang_code not in self.translations:
+        if lang_code not in self.translations and lang_code != "en":
             self.app.append_progress(
-                _("Language '{lang_code}' not found.").format(lang_code=lang_code),
+                tr("Language '{lang_code}' not found.").format(lang_code=lang_code),
                 "red",
             )
-            return
-
         self.current_language = lang_code
         self.app.settings_manager.set("language", lang_code)
-        self.app.settings_manager.save_settings()
 
     def get_available_languages(self) -> Dict[str, str]:
-        """Returns a dict of available language codes to their display names."""
-
         display_names = {
             "en": "English",
             "fr": "Français",
+            "cn": "中文",
+            "de": "Deutsch",
+            "es": "Español",
+            "it": "Italiano",
+            "jp": "日本語",
+            "ko": "한국어",
+            "pt": "Português",
+            "ru": "Русский",
+            "tr": "Türkçe",
+            "zh": "简体中文",
+            "ar": "العربية",
+            "bg": "Български",
+            "ca": "Català",
+            "cs": "Čeština",
+            "da": "Dansk",
+            "el": "Ελληνικά",
+            "eo": "Esperanto",
+            "fa": "فارسی",
+            "fi": "Suomi",
+            "he": "עברית",
+            "in": "हिंदी",
+            "hr": "Hrvatski",
+            "hu": "Magyar",
+            "id": "Bahasa Indonesia",
+            "is": "Íslenska",
+            "lt": "Lietuvių",
+            "lv": "Latviešu",
+            "nl": "Nederlands",
+            "no": "Norsk",
+            "pl": "Polski",
+            "pt-br": "Português do Brasil",
+            "ro": "Română",
+            "sk": "Slovenčina",
+            "sl": "Slovenščina",
+            "sv": "Svenska",
+            "th": "ไทย",
+            "uk": "Українська",
+            "vi": "Tiếng Việt",
+            "zh-cn": "简体中文",
+            "zh-tw": "繁體中文",
+            "af": "Afrikaans",
         }
-        return {
-            code: display_names.get(code, code)
-            for code in sorted(self.translations.keys())
-        }
+        available = {"en": display_names.get("en", "English")}
+        for code in sorted(self.translations.keys()):
+            available[code] = display_names.get(code, code)
+        return available
 
 
 # --- Main Application Class ---
@@ -256,7 +280,7 @@ class ManifestDownloader(ctk.CTk):
     Handles UI setup, game searching, manifest downloading, and processing.
     """
 
-    APP_VERSION = "2.0.0"
+    APP_VERSION = "2.0.2"
     GITHUB_RELEASES_API = (
         "https://api.github.com/repos/fairy-root/steam-depot-online/releases/latest"
     )
@@ -268,9 +292,14 @@ class ManifestDownloader(ctk.CTk):
         global _LOC_MANAGER
         self.localization_manager = LocalizationManager(self)
         _LOC_MANAGER = self.localization_manager
-        self.localization_manager.set_language(self.settings_manager.get("language"))
+        self.localization_manager.set_language(
+            self.settings_manager.get("language", "en")
+        )
 
-        self.title(_("Steam Depot Online (SDO)"))
+        self.current_progress_tab_name: str = tr("Progress")
+        self.current_downloaded_tab_name: str = tr("Downloaded Manifests")
+
+        self.title(tr("Steam Depot Online (SDO)"))
         self.geometry(self.settings_manager.get("window_geometry"))
         self.minsize(1080, 590)
         self.resizable(True, True)
@@ -280,14 +309,13 @@ class ManifestDownloader(ctk.CTk):
 
         if not PIL_AVAILABLE:
             messagebox.showwarning(
-                _("Missing Library"),
-                _(
+                tr("Missing Library"),
+                tr(
                     "Pillow (PIL) library is not installed. Images will not be displayed in game details. Please install it using: pip install Pillow"
                 ),
             )
 
         self.repos: Dict[str, str] = self.load_repositories()
-
         saved_selected_repos = self.settings_manager.get("selected_repos", {})
         self.selected_repos: Dict[str, bool] = {
             repo: saved_selected_repos.get(repo, (repo_type == "Branch"))
@@ -300,16 +328,15 @@ class ManifestDownloader(ctk.CTk):
         self.selected_game_name: Optional[str] = None
         self.search_thread: Optional[threading.Thread] = None
         self.cancel_search: bool = False
-        self.loop: Optional[asyncio.AbstractEventLoop] = None
 
         self.steam_app_list: List[Dict[str, Any]] = []
         self.app_list_loaded_event = threading.Event()
         self.initial_load_thread: Optional[threading.Thread] = None
 
         self.image_references: List[ctk.CTkImage] = []
-
         self._dynamic_content_start_index: str = "1.0"
         self.progress_text: Optional[Text] = None
+        self.rate_limit_display_label: Optional[ctk.CTkLabel] = None
 
         self.setup_ui()
         self._refresh_ui_texts()
@@ -319,8 +346,17 @@ class ManifestDownloader(ctk.CTk):
         if self.settings_manager.get("app_update_check_on_startup"):
             threading.Thread(target=self.run_update_check, daemon=True).start()
 
+    def _get_github_headers(self) -> Optional[Dict[str, str]]:
+        if self.settings_manager.get("use_github_api_token"):
+            token = self.settings_manager.get("github_api_token")
+            if token:
+                return {
+                    "Authorization": f"token {token}",
+                    "Accept": "application/vnd.github.v3+json",
+                }
+        return None
+
     def _start_initial_app_list_load(self) -> None:
-        """Starts the asynchronous loading of the Steam app list."""
         self.initial_load_thread = threading.Thread(
             target=self._run_initial_app_list_load, daemon=True
         )
@@ -345,31 +381,33 @@ class ManifestDownloader(ctk.CTk):
                         data = await response.json()
                         self.steam_app_list = data.get("applist", {}).get("apps", [])
                         self.app_list_loaded_event.set()
+                        self.append_progress(
+                            tr("Steam app list loaded successfully."), "green"
+                        )
                     else:
                         self.append_progress(
-                            _(
+                            tr(
                                 "Initialization: Failed to load Steam app list (Status: {response_status}). Search by name may not work. You can still search by AppID."
                             ).format(response_status=response.status),
                             "red",
                         )
-
         except (aiohttp.ClientError, asyncio.TimeoutError) as e:
             self.append_progress(
-                _(
+                tr(
                     "Initialization: Error fetching Steam app list: {error}. Search by name may not work."
                 ).format(error=self.stack_Error(e)),
                 "red",
             )
         except json.JSONDecodeError:
             self.append_progress(
-                _(
+                tr(
                     "Initialization: Failed to decode Steam app list response. Search by name may not work."
                 ),
                 "red",
             )
         except Exception as e:
             self.append_progress(
-                _(
+                tr(
                     "Initialization: Unexpected error loading Steam app list: {error}."
                 ).format(error=self.stack_Error(e)),
                 "red",
@@ -379,7 +417,6 @@ class ManifestDownloader(ctk.CTk):
         self.after(0, self._update_dynamic_content_start_index)
 
     def _update_dynamic_content_start_index(self) -> None:
-        """Stores the index after initial messages for selective clearing."""
         if self.progress_text:
             self._dynamic_content_start_index = self.progress_text.index(END)
 
@@ -389,7 +426,6 @@ class ManifestDownloader(ctk.CTk):
             try:
                 with open(path, "r", encoding="utf-8") as f:
                     repos = json.load(f)
-
                     cleaned_repos = {
                         k: v
                         for k, v in repos.items()
@@ -398,8 +434,8 @@ class ManifestDownloader(ctk.CTk):
                     return cleaned_repos
             except (json.JSONDecodeError, IOError):
                 messagebox.showerror(
-                    _("Load Error"),
-                    _("Failed to load repositories.json. Using empty list."),
+                    tr("Load Error"),
+                    tr("Failed to load repositories.json. Using empty list."),
                 )
                 return {}
         return {}
@@ -411,7 +447,7 @@ class ManifestDownloader(ctk.CTk):
                 json.dump(self.repos, f, indent=4)
         except IOError:
             messagebox.showerror(
-                _("Save Error"), _("Failed to save repositories.json.")
+                tr("Save Error"), tr("Failed to save repositories.json.")
             )
 
         saved_selected_repos_state = {
@@ -439,21 +475,21 @@ class ManifestDownloader(ctk.CTk):
         encrypted_label_frame.pack(fill="x")
         self.encrypted_label = ctk.CTkLabel(
             encrypted_label_frame,
-            text=_("Encrypted Repositories:"),
+            text=tr("Encrypted Repositories:"),
             text_color="cyan",
             font=("Helvetica", 12.6),
         )
         self.encrypted_label.pack(padx=9, pady=(9, 4.5), side="left")
         self.select_all_enc_button = ctk.CTkButton(
             encrypted_label_frame,
-            text=_("Select All"),
+            text=tr("Select All"),
             width=72,
             command=lambda: self.toggle_all_repos("encrypted"),
         )
         self.select_all_enc_button.pack(padx=18, pady=(9, 4.5), side="left")
         Tooltip(
             self.select_all_enc_button,
-            _("Toggle selection for all Encrypted repositories."),
+            tr("Toggle selection for all Encrypted repositories."),
         )
         self.encrypted_scroll = ctk.CTkScrollableFrame(
             encrypted_frame, width=240, height=135
@@ -466,21 +502,21 @@ class ManifestDownloader(ctk.CTk):
         decrypted_label_frame.pack(fill="x")
         self.decrypted_label = ctk.CTkLabel(
             decrypted_label_frame,
-            text=_("Decrypted Repositories:"),
+            text=tr("Decrypted Repositories:"),
             text_color="cyan",
             font=("Helvetica", 12.6),
         )
         self.decrypted_label.pack(padx=9, pady=(9, 4.5), side="left")
         self.select_all_dec_button = ctk.CTkButton(
             decrypted_label_frame,
-            text=_("Select All"),
+            text=tr("Select All"),
             width=72,
             command=lambda: self.toggle_all_repos("decrypted"),
         )
         self.select_all_dec_button.pack(padx=18, pady=(9, 4.5), side="left")
         Tooltip(
             self.select_all_dec_button,
-            _("Toggle selection for all Decrypted repositories."),
+            tr("Toggle selection for all Decrypted repositories."),
         )
         self.decrypted_scroll = ctk.CTkScrollableFrame(
             decrypted_frame, width=240, height=135
@@ -493,21 +529,21 @@ class ManifestDownloader(ctk.CTk):
         branch_label_frame.pack(fill="x")
         self.branch_label = ctk.CTkLabel(
             branch_label_frame,
-            text=_("Branch Repositories:"),
+            text=tr("Branch Repositories:"),
             text_color="cyan",
             font=("Helvetica", 12.6),
         )
         self.branch_label.pack(padx=9, pady=(9, 4.5), side="left")
         self.select_all_branch_button = ctk.CTkButton(
             branch_label_frame,
-            text=_("Select All"),
+            text=tr("Select All"),
             width=72,
             command=lambda: self.toggle_all_repos("branch"),
         )
         self.select_all_branch_button.pack(padx=28, pady=(9, 4.5), side="left")
         Tooltip(
             self.select_all_branch_button,
-            _("Toggle selection for all Branch repositories."),
+            tr("Toggle selection for all Branch repositories."),
         )
         self.branch_scroll = ctk.CTkScrollableFrame(branch_frame, width=240, height=135)
         self.branch_scroll.pack(padx=9, pady=4.5, fill="both", expand=True)
@@ -515,31 +551,31 @@ class ManifestDownloader(ctk.CTk):
         self.refresh_repo_checkboxes()
 
         self.add_repo_button = ctk.CTkButton(
-            repo_frame, text=_("Add Repo"), width=90, command=self.open_add_repo_window
+            repo_frame, text=tr("Add Repo"), width=90, command=self.open_add_repo_window
         )
         self.add_repo_button.pack(padx=9, pady=4.5, side="right")
-        Tooltip(self.add_repo_button, _("Add a new GitHub repository to the list."))
+        Tooltip(self.add_repo_button, tr("Add a new GitHub repository to the list."))
 
         self.delete_repo_button = ctk.CTkButton(
-            repo_frame, text=_("Delete Repo"), width=90, command=self.delete_repo
+            repo_frame, text=tr("Delete Repo"), width=90, command=self.delete_repo
         )
         self.delete_repo_button.pack(padx=9, pady=4.5, side="right")
         Tooltip(
-            self.delete_repo_button, _("Delete selected repositories from the list.")
+            self.delete_repo_button, tr("Delete selected repositories from the list.")
         )
 
         self.settings_button = ctk.CTkButton(
-            repo_frame, text=_("Settings"), width=90, command=self.open_settings_window
+            repo_frame, text=tr("Settings"), width=90, command=self.open_settings_window
         )
         self.settings_button.pack(padx=9, pady=4.5, side="right")
         Tooltip(
             self.settings_button,
-            _("Open application settings, including info, themes, and more."),
+            tr("Open application settings, including info, themes, and more."),
         )
 
         self.output_folder_button = ctk.CTkButton(
             repo_frame,
-            text=_("Output Folder"),
+            text=tr("Output Folder"),
             width=90,
             command=lambda: self.open_path_in_explorer(
                 self.settings_manager.get("download_path")
@@ -548,7 +584,7 @@ class ManifestDownloader(ctk.CTk):
         self.output_folder_button.pack(padx=9, pady=4.5, side="right")
         Tooltip(
             self.output_folder_button,
-            _("Open the default download output folder where game zips are saved."),
+            tr("Open the default download output folder where game zips are saved."),
         )
 
         self.strict_validation_var = ctk.BooleanVar(
@@ -556,7 +592,7 @@ class ManifestDownloader(ctk.CTk):
         )
         self.strict_validation_checkbox = ctk.CTkCheckBox(
             repo_frame,
-            text=_("Strict Validation (Require Key.vdf / Non Branch Repo)"),
+            text=tr("Strict Validation (Require Key.vdf / Non Branch Repo)"),
             text_color="orange",
             variable=self.strict_validation_var,
             font=("Helvetica", 12.6),
@@ -565,7 +601,7 @@ class ManifestDownloader(ctk.CTk):
         self.strict_validation_checkbox.pack(padx=9, pady=4.5, side="left", anchor="w")
         Tooltip(
             self.strict_validation_checkbox,
-            _(
+            tr(
                 "When checked, for non-Branch repos, only downloads manifest files and attempts to extract keys if key.vdf/config.vdf is found. Key files are excluded from final zip. When unchecked, all files are downloaded, and key files are included."
             ),
         )
@@ -574,31 +610,31 @@ class ManifestDownloader(ctk.CTk):
         input_frame.pack(padx=0, pady=9, fill="x", expand=False)
         self.game_input_label = ctk.CTkLabel(
             input_frame,
-            text=_("Enter Game Name or AppID:"),
+            text=tr("Enter Game Name or AppID:"),
             text_color="cyan",
             font=("Helvetica", 14.4),
         )
         self.game_input_label.pack(padx=9, pady=4.5, anchor="w")
         self.game_input = ctk.CTkEntry(
-            input_frame, placeholder_text=_("e.g. 123456 or Game Name"), width=270
+            input_frame, placeholder_text=tr("e.g. 123456 or Game Name"), width=270
         )
         self.game_input.pack(padx=9, pady=4.5, side="left", expand=True, fill="x")
         Tooltip(
             self.game_input,
-            _(
+            tr(
                 "Enter a game name (e.g., 'Portal 2') or AppID (e.g., '620'). For batch download, enter multiple AppIDs separated by commas or newlines."
             ),
         )
 
         self.paste_button = ctk.CTkButton(
-            input_frame, text=_("Paste"), width=90, command=self.paste_from_clipboard
+            input_frame, text=tr("Paste"), width=90, command=self.paste_from_clipboard
         )
         self.paste_button.pack(padx=9, pady=4.5, side="left")
-        Tooltip(self.paste_button, _("Paste text from clipboard into the input field."))
+        Tooltip(self.paste_button, tr("Paste text from clipboard into the input field."))
 
         self.search_button = ctk.CTkButton(
             input_frame,
-            text=_("Search"),
+            text=tr("Search"),
             width=90,
             command=self.search_game,
             state="disabled",
@@ -606,12 +642,12 @@ class ManifestDownloader(ctk.CTk):
         self.search_button.pack(padx=9, pady=4.5, side="left")
         Tooltip(
             self.search_button,
-            _("Search for games matching the entered name or AppID."),
+            tr("Search for games matching the entered name or AppID."),
         )
 
         self.download_button = ctk.CTkButton(
             input_frame,
-            text=_("Download"),
+            text=tr("Download"),
             width=90,
             command=self.download_manifest,
             state="disabled",
@@ -619,14 +655,14 @@ class ManifestDownloader(ctk.CTk):
         self.download_button.pack(padx=9, pady=4.5, side="left")
         Tooltip(
             self.download_button,
-            _("Download manifests/data for the selected game or all entered AppIDs."),
+            tr("Download manifests/data for the selected game or all entered AppIDs."),
         )
 
         download_type_frame = ctk.CTkFrame(left_frame, corner_radius=9)
         download_type_frame.pack(padx=0, pady=(0, 9), fill="x", expand=False)
         self.download_type_label = ctk.CTkLabel(
             download_type_frame,
-            text=_("Select appid(s) to download:"),
+            text=tr("Select appid(s) to download:"),
             font=("Helvetica", 12.6),
         )
         self.download_type_label.pack(padx=9, pady=4.5, anchor="w")
@@ -634,26 +670,26 @@ class ManifestDownloader(ctk.CTk):
         self.download_mode_var = ctk.StringVar(value="selected_game")
         self.radio_download_selected = ctk.CTkRadioButton(
             download_type_frame,
-            text=_("Selected game in search results"),
+            text=tr("Selected game in search results"),
             variable=self.download_mode_var,
             value="selected_game",
         )
         self.radio_download_selected.pack(padx=9, pady=2, anchor="w")
         Tooltip(
             self.radio_download_selected,
-            _("Download only the game selected from the search results (if any)."),
+            tr("Download only the game selected from the search results (if any)."),
         )
 
         self.radio_download_all_input = ctk.CTkRadioButton(
             download_type_frame,
-            text=_("All AppIDs in input field"),
+            text=tr("All AppIDs in input field"),
             variable=self.download_mode_var,
             value="all_input_appids",
         )
         self.radio_download_all_input.pack(padx=9, pady=2, anchor="w")
         Tooltip(
             self.radio_download_all_input,
-            _(
+            tr(
                 "Download all AppIDs found in the 'Enter Game Name or AppID' field, ignoring search results. Useful for batch downloads.\nNote: If multiple AppIDs are entered, all will be downloaded sequentially, skipping individual game details."
             ),
         )
@@ -662,7 +698,7 @@ class ManifestDownloader(ctk.CTk):
         self.results_frame.pack(padx=0, pady=9, fill="both", expand=True)
         self.results_label = ctk.CTkLabel(
             self.results_frame,
-            text=_("Search Results:"),
+            text=tr("Search Results:"),
             text_color="cyan",
             font=("Helvetica", 14.4),
         )
@@ -680,17 +716,16 @@ class ManifestDownloader(ctk.CTk):
         self.main_tabview = ctk.CTkTabview(right_frame, width=400)
         self.main_tabview.pack(fill="both", expand=True, padx=0, pady=9)
 
-        self.progress_tab_title = _("Progress")
-        self.downloaded_tab_title = _("Downloaded Manifests")
+        self.progress_tab = self.main_tabview.add(self.current_progress_tab_name)
+        self.downloaded_tab = self.main_tabview.add(self.current_downloaded_tab_name)
 
-        self.progress_tab = self.main_tabview.add(self.progress_tab_title)
-        self.downloaded_tab = self.main_tabview.add(self.downloaded_tab_title)
+        try:
+            self.main_tabview.set(self.current_progress_tab_name)
+        except ValueError:
+            if self.main_tabview._name_list:
+                self.main_tabview.set(self.main_tabview._name_list[0])
 
-        self.main_tabview.set(self.progress_tab_title)
-
-        progress_frame = ctk.CTkFrame(
-            self.main_tabview.tab(self.progress_tab_title), corner_radius=9
-        )
+        progress_frame = ctk.CTkFrame(self.progress_tab, corner_radius=9)
         progress_frame.pack(padx=0, pady=9, fill="both", expand=True)
         text_container = ctk.CTkFrame(progress_frame, corner_radius=9)
         text_container.pack(padx=9, pady=4.5, fill="both", expand=True)
@@ -753,13 +788,16 @@ class ManifestDownloader(ctk.CTk):
             font=("Helvetica", 9),
             spacing3=3,
         )
-
         self._setup_downloaded_manifests_tab()
 
     def _setup_downloaded_manifests_tab(self) -> None:
-        """Sets up the UI for the Downloaded Manifests tab."""
-
-        tab_frame = self.main_tabview.tab(self.downloaded_tab_title)
+        tab_frame = self.main_tabview.tab(self.current_downloaded_tab_name)
+        if not tab_frame:
+            self.append_progress(
+                f"Error: Could not find downloaded tab frame for '{self.current_downloaded_tab_name}'",
+                "red",
+            )
+            return
         for widget in tab_frame.winfo_children():
             widget.destroy()
 
@@ -770,18 +808,18 @@ class ManifestDownloader(ctk.CTk):
         control_frame.pack(fill="x", padx=9, pady=9)
 
         self.downloaded_manifests_label = ctk.CTkLabel(
-            control_frame, text=_("Downloaded Manifests"), font=("Helvetica", 14.4)
+            control_frame, text=tr("Downloaded Manifests"), font=("Helvetica", 14.4)
         )
         self.downloaded_manifests_label.pack(side="left", padx=5, pady=5)
         self.refresh_list_button = ctk.CTkButton(
             control_frame,
-            text=_("Refresh List"),
+            text=tr("Refresh List"),
             command=self.display_downloaded_manifests,
         )
         self.refresh_list_button.pack(side="right", padx=5, pady=5)
         Tooltip(
             self.refresh_list_button,
-            _("Scan the download folder for zipped outcomes and update the list."),
+            tr("Scan the download folder for zipped outcomes and update the list."),
         )
 
         self.downloaded_manifests_container = ctk.CTkScrollableFrame(
@@ -790,27 +828,25 @@ class ManifestDownloader(ctk.CTk):
         self.downloaded_manifests_container.pack(
             padx=9, pady=9, fill="both", expand=True
         )
-
         self.display_downloaded_manifests()
 
     def display_downloaded_manifests(self) -> None:
-        """Scans the download directory and displays found zip files."""
         for widget in self.downloaded_manifests_container.winfo_children():
             widget.destroy()
 
         download_path = self.settings_manager.get("download_path")
         if not os.path.isdir(download_path):
             self.append_progress(
-                _(f"Download path '{download_path}' does not exist."), "red"
+                tr(f"Download path '{download_path}' does not exist."), "red"
             )
             ctk.CTkLabel(
                 self.downloaded_manifests_container,
-                text=_("Download folder not found or configured incorrectly."),
+                text=tr("Download folder not found or configured incorrectly."),
                 text_color="red",
             ).pack(pady=10)
             return
 
-        self.append_progress(_("Scanning downloaded manifests..."), "default")
+        self.append_progress(tr("Scanning downloaded manifests..."), "default")
         self.update_idletasks()
 
         found_zips = []
@@ -821,14 +857,14 @@ class ManifestDownloader(ctk.CTk):
                     found_zips.append({"filename": item, "filepath": full_path})
         except Exception as e:
             self.append_progress(
-                _("Error scanning downloaded manifests: {e}").format(
+                tr("Error scanning downloaded manifests: {e}").format(
                     e=self.stack_Error(e)
                 ),
                 "red",
             )
             ctk.CTkLabel(
                 self.downloaded_manifests_container,
-                text=_(f"Error scanning folder: {e}"),
+                text=tr(f"Error scanning folder: {e}"),
                 text_color="red",
             ).pack(pady=10)
             return
@@ -836,16 +872,16 @@ class ManifestDownloader(ctk.CTk):
         if not found_zips:
             ctk.CTkLabel(
                 self.downloaded_manifests_container,
-                text=_("No downloaded manifests found."),
+                text=tr("No downloaded manifests found."),
                 text_color="yellow",
             ).pack(pady=10)
-            self.append_progress(_("No downloaded manifests found."), "yellow")
+            self.append_progress(tr("No downloaded manifests found."), "yellow")
             return
 
         found_zips.sort(key=lambda x: x["filename"].lower())
 
         self.append_progress(
-            _("Found {count} downloaded manifests.").format(count=len(found_zips)),
+            tr("Found {count} downloaded manifests.").format(count=len(found_zips)),
             "green",
         )
 
@@ -855,21 +891,21 @@ class ManifestDownloader(ctk.CTk):
         header_frame.pack(fill="x", padx=5, pady=(5, 0))
         ctk.CTkLabel(
             header_frame,
-            text=_("Game Name"),
+            text=tr("Game Name"),
             font=("Helvetica", 11, "bold"),
             width=200,
             anchor="w",
         ).pack(side="left", padx=(0, 10))
         ctk.CTkLabel(
             header_frame,
-            text=_("AppID"),
+            text=tr("AppID"),
             font=("Helvetica", 11, "bold"),
             width=80,
             anchor="w",
         ).pack(side="left", padx=(0, 10))
         ctk.CTkLabel(
             header_frame,
-            text=_("Action"),
+            text=tr("Action"),
             font=("Helvetica", 11, "bold"),
             width=80,
             anchor="w",
@@ -878,7 +914,6 @@ class ManifestDownloader(ctk.CTk):
         for zip_info in found_zips:
             filename = zip_info["filename"]
             filepath = zip_info["filepath"]
-
             base_name = filename.rsplit(".zip", 1)[0]
             if base_name.endswith(" - encrypted"):
                 base_name = base_name.rsplit(" - encrypted", 1)[0]
@@ -905,23 +940,21 @@ class ManifestDownloader(ctk.CTk):
 
             open_file_button = ctk.CTkButton(
                 row_frame,
-                text=_("ZIP"),
+                text=tr("ZIP"),
                 width=80,
                 command=partial(self.open_path_in_explorer, filepath),
                 font=("Helvetica", 10),
             )
             open_file_button.pack(side="left")
-            Tooltip(open_file_button, _(f"Open the zip file '{filename}'"))
+            Tooltip(open_file_button, tr(f"Open the zip file '{filename}'"))
 
     def open_path_in_explorer(self, path_to_open: str) -> None:
-        """Opens the given file or directory in the OS explorer."""
         if not os.path.exists(path_to_open):
             messagebox.showerror(
-                _("Error"),
-                _("File not found: {filepath}").format(filepath=path_to_open),
+                tr("Error"),
+                tr("File not found: {filepath}").format(filepath=path_to_open),
             )
             return
-
         try:
             if sys.platform == "win32":
                 os.startfile(path_to_open)
@@ -930,9 +963,9 @@ class ManifestDownloader(ctk.CTk):
             else:
                 subprocess.run(["xdg-open", path_to_open])
         except Exception as e:
-            messagebox.showerror(_("Error"), _("Could not open path: {e}").format(e=e))
+            messagebox.showerror(tr("Error"), tr("Could not open path: {e}").format(e=e))
             self.append_progress(
-                _("Error opening path {path_to_open}: {error}").format(
+                tr("Error opening path {path_to_open}: {error}").format(
                     path_to_open=path_to_open, error=self.stack_Error(e)
                 ),
                 "red",
@@ -944,16 +977,12 @@ class ManifestDownloader(ctk.CTk):
         color: str = "default",
         tags: Optional[Tuple[str, ...]] = None,
     ) -> None:
-        """Appends a message directly to the progress text on the current (main) thread."""
         if self.progress_text is None:
             return
-
         self.progress_text.configure(state="normal")
-
         final_tags = (color,)
         if tags:
             final_tags += tags
-
         self.progress_text.insert(END, message + "\n", final_tags)
         self.progress_text.see(END)
         self.progress_text.configure(state="disabled")
@@ -964,19 +993,9 @@ class ManifestDownloader(ctk.CTk):
         color: str = "default",
         tags: Optional[Tuple[str, ...]] = None,
     ) -> None:
-        """
-        Public method to append a message to the progress text.
-        Always schedules the actual append operation on the main Tkinter thread.
-        Safe to call from any background thread.
-        """
         self.after(0, partial(self._append_progress_direct, message, color, tags))
 
     def _clear_and_reinitialize_progress_area(self) -> None:
-        """
-        Clears the entire progress text area, re-inserts initial messages,
-        and resets the dynamic content start index.
-        This method MUST be called synchronously on the main Tkinter thread.
-        """
         if self.progress_text:
             self.progress_text.configure(state="normal")
             self.progress_text.delete("1.0", END)
@@ -993,7 +1012,6 @@ class ManifestDownloader(ctk.CTk):
         self.download_button.configure(state="disabled")
 
     def _bind_shortcuts(self) -> None:
-        """Binds keyboard shortcuts to actions."""
         self.bind("<Control-v>", lambda e: self.paste_from_clipboard())
         self.bind("<Control-V>", lambda e: self.paste_from_clipboard())
         self.game_input.bind("<Return>", lambda e: self.search_game())
@@ -1003,23 +1021,22 @@ class ManifestDownloader(ctk.CTk):
             clipboard_text: str = self.clipboard_get()
             self.game_input.delete(0, END)
             self.game_input.insert(0, clipboard_text)
-            self.append_progress(_("Pasted text from clipboard."), "green")
+            self.append_progress(tr("Pasted text from clipboard."), "green")
         except Exception as e:
             messagebox.showerror(
-                _("Paste Error"), _("Failed to paste from clipboard: {e}").format(e=e)
+                tr("Paste Error"), tr("Failed to paste from clipboard: {e}").format(e=e)
             )
 
     def save_strict_validation_setting(self) -> None:
-        """Saves the state of the strict validation checkbox to settings."""
         self.settings_manager.set("strict_validation", self.strict_validation_var.get())
         self.settings_manager.save_settings()
-        self.append_progress(_("Strict validation setting saved."), "default")
+        self.append_progress(tr("Strict validation setting saved."), "default")
 
     def search_game(self) -> None:
         user_input: str = self.game_input.get().strip()
         if not user_input:
             messagebox.showwarning(
-                _("Input Error"), _("Please enter a game name or AppID.")
+                tr("Input Error"), tr("Please enter a game name or AppID.")
             )
             return
 
@@ -1028,12 +1045,10 @@ class ManifestDownloader(ctk.CTk):
             for s in user_input.replace(",", "\n").splitlines()
             if s.strip().isdigit()
         ]
-
         if len(potential_appids) > 1:
-
             self.download_mode_var.set("all_input_appids")
             self.append_progress(
-                _(
+                tr(
                     "Multiple AppIDs detected. Automatically setting download mode to 'All AppIDs in input field'."
                 ),
                 "yellow",
@@ -1043,10 +1058,9 @@ class ManifestDownloader(ctk.CTk):
 
         if self.search_thread and self.search_thread.is_alive():
             self.cancel_search = True
-            self.append_progress(_("Cancelling previous search..."), "yellow")
+            self.append_progress(tr("Cancelling previous search..."), "yellow")
 
         self._clear_and_reinitialize_progress_area()
-
         self.cancel_search = False
         self.search_thread = threading.Thread(
             target=self.run_search, args=(user_input,), daemon=True
@@ -1069,7 +1083,6 @@ class ManifestDownloader(ctk.CTk):
             appid_to_search = user_input
             url = f"https://store.steampowered.com/api/appdetails?appids={appid_to_search}&l=english"
             try:
-
                 async with aiohttp.ClientSession() as session:
                     async with session.get(
                         url, timeout=aiohttp.ClientTimeout(total=15)
@@ -1088,14 +1101,14 @@ class ManifestDownloader(ctk.CTk):
                                 )
                             else:
                                 self.append_progress(
-                                    _(
+                                    tr(
                                         "No game found or API error for AppID {appid_to_search}."
                                     ).format(appid_to_search=appid_to_search),
                                     "red",
                                 )
                         else:
                             self.append_progress(
-                                _(
+                                tr(
                                     "Failed to fetch details for AppID {appid_to_search} (Status: {response_status})."
                                 ).format(
                                     appid_to_search=appid_to_search,
@@ -1105,14 +1118,14 @@ class ManifestDownloader(ctk.CTk):
                             )
             except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                 self.append_progress(
-                    _("Error fetching AppID {appid_to_search}: {error}").format(
+                    tr("Error fetching AppID {appid_to_search}: {error}").format(
                         appid_to_search=appid_to_search, error=self.stack_Error(e)
                     ),
                     "red",
                 )
             except json.JSONDecodeError:
                 self.append_progress(
-                    _("Failed to decode JSON for AppID {appid_to_search}.").format(
+                    tr("Failed to decode JSON for AppID {appid_to_search}.").format(
                         appid_to_search=appid_to_search
                     ),
                     "red",
@@ -1120,7 +1133,7 @@ class ManifestDownloader(ctk.CTk):
         else:
             if not self.app_list_loaded_event.is_set():
                 self.append_progress(
-                    _("Steam app list is not yet loaded. Please wait or try AppID."),
+                    tr("Steam app list is not yet loaded. Please wait or try AppID."),
                     "yellow",
                 )
                 return
@@ -1128,7 +1141,7 @@ class ManifestDownloader(ctk.CTk):
             search_term_lower = user_input.lower()
             for app_info in self.steam_app_list:
                 if self.cancel_search:
-                    self.append_progress(_("\nName search cancelled."), "yellow")
+                    self.append_progress(tr("\nName search cancelled."), "yellow")
                     return
                 if search_term_lower in app_info.get("name", "").lower():
                     games_found.append(
@@ -1136,19 +1149,19 @@ class ManifestDownloader(ctk.CTk):
                     )
                     if len(games_found) >= max_results:
                         self.append_progress(
-                            _("Max results ({max_results}). Refine search.").format(
-                                max_results=max_results
-                            ),
+                            tr(
+                                "Max results ({max_results}) reached. Please refine your search."
+                            ).format(max_results=max_results),
                             "yellow",
                         )
                         break
 
         if self.cancel_search:
-            self.append_progress(_("\nSearch cancelled."), "yellow")
+            self.append_progress(tr("\nSearch cancelled by user action."), "yellow")
             return
         if not games_found:
             self.append_progress(
-                _("\nNo matching games found. Please try another name or AppID."), "red"
+                tr("\nNo matching games found. Please try another name or AppID."), "red"
             )
             return
 
@@ -1158,33 +1171,42 @@ class ManifestDownloader(ctk.CTk):
 
         for idx, game in enumerate(games_found, 1):
             if self.cancel_search:
-                self.append_progress(_("\nSearch cancelled."), "yellow")
+                self.append_progress(tr("\nSearch display cancelled."), "yellow")
                 return
             appid, game_name = str(game.get("appid", "Unknown")), game.get(
-                "name", _("Unknown Game")
+                "name", tr("Unknown Game")
             )
             self.appid_to_game[appid] = game_name
-
             capsule_url = f"https://cdn.akamai.steamstatic.com/steam/apps/{appid}/capsule_231x87.jpg"
             if PIL_AVAILABLE:
                 capsule_tasks.append(self._download_image_async(capsule_url))
             else:
                 capsule_tasks.append(asyncio.sleep(0, result=None))
-
             game_data_for_ui.append((idx, appid, game_name))
 
-        capsule_results = await asyncio.gather(*capsule_tasks)
+        capsule_results = await asyncio.gather(*capsule_tasks, return_exceptions=True)
 
         for i, (idx, appid, game_name) in enumerate(game_data_for_ui):
-            image_data = capsule_results[i]
+            if self.cancel_search:
+                break
+            image_data_result = capsule_results[i]
+            image_data = (
+                image_data_result
+                if not isinstance(image_data_result, Exception)
+                else None
+            )
+            if isinstance(image_data_result, Exception):
+                self.append_progress(
+                    f"Error loading capsule for {game_name}: {image_data_result}", "red"
+                )
             self.after(
                 0, partial(self.create_radio_button, idx, appid, game_name, image_data)
             )
 
         self.append_progress(
-            _("\nFound {len_games_found} game(s). Select one.").format(
-                len_games_found=len(games_found)
-            ),
+            tr(
+                "\nFound {len_games_found} game(s). Select one from the list above."
+            ).format(len_games_found=len(games_found)),
             "cyan",
         )
 
@@ -1196,7 +1218,6 @@ class ManifestDownloader(ctk.CTk):
         rb_frame.pack(anchor="w", padx=10, pady=2, fill="x")
 
         image_width, image_height = 80, 30
-        capsule_ctk_image = None
         if PIL_AVAILABLE and capsule_image_data:
             try:
                 pil_image = Image.open(BytesIO(capsule_image_data))
@@ -1209,16 +1230,24 @@ class ManifestDownloader(ctk.CTk):
                     size=(image_width, image_height),
                 )
                 self.image_references.append(capsule_ctk_image)
-
                 image_label = ctk.CTkLabel(rb_frame, text="", image=capsule_ctk_image)
                 image_label.pack(side="left", padx=(0, 5))
             except Exception as e:
                 self.append_progress(
-                    _("Error creating capsule image for {appid}: {error}").format(
+                    tr("Error creating capsule image for {appid}: {error}").format(
                         appid=appid, error=self.stack_Error(e)
                     ),
                     "red",
                 )
+                no_image_label = ctk.CTkLabel(
+                    rb_frame,
+                    text="[X]",
+                    width=image_width,
+                    height=image_height,
+                    text_color="gray",
+                    font=("Helvetica", 8),
+                )
+                no_image_label.pack(side="left", padx=(0, 5))
         elif PIL_AVAILABLE:
             no_image_label = ctk.CTkLabel(
                 rb_frame,
@@ -1249,20 +1278,20 @@ class ManifestDownloader(ctk.CTk):
             if self.progress_text:
                 self.progress_text.configure(state="normal")
                 self.progress_text.delete("1.0", END)
-
-                self.image_references = []
+                self.image_references.clear()
                 self.progress_text.configure(state="disabled")
 
             self.download_button.configure(state="normal")
             self.download_mode_var.set("selected_game")
-
             threading.Thread(
                 target=self.run_display_game_details,
                 args=(self.selected_appid, self.selected_game_name),
                 daemon=True,
             ).start()
         else:
-            self.append_progress(_("Selected game not found in mapping."), "red")
+            self.append_progress(
+                tr("Selected game not found in mapping. This is unexpected."), "red"
+            )
             self.download_button.configure(state="disabled")
 
     def run_display_game_details(self, appid: str, game_name: str) -> None:
@@ -1274,11 +1303,9 @@ class ManifestDownloader(ctk.CTk):
             loop.close()
 
     async def _download_image_async(self, url: str) -> Optional[bytes]:
-        """Helper to download an image by creating its own dedicated session."""
         if not PIL_AVAILABLE:
             return None
         try:
-
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                     url, timeout=aiohttp.ClientTimeout(total=10)
@@ -1289,7 +1316,7 @@ class ManifestDownloader(ctk.CTk):
                         return None
                     else:
                         self.append_progress(
-                            _(
+                            tr(
                                 "Failed to download image (Status {response_status}): {url}"
                             ).format(response_status=response.status, url=url),
                             "yellow",
@@ -1298,7 +1325,7 @@ class ManifestDownloader(ctk.CTk):
                         return None
         except Exception as e:
             self.append_progress(
-                _("Error downloading image {url}: {error}").format(
+                tr("Error downloading image {url}: {error}").format(
                     url=url, error=self.stack_Error(e)
                 ),
                 "red",
@@ -1309,7 +1336,6 @@ class ManifestDownloader(ctk.CTk):
     def _process_and_insert_image_ui(
         self, image_bytes: Optional[bytes], max_width: int, max_height: int
     ) -> None:
-        """Processes image bytes and inserts into Text widget on the UI thread."""
         if not image_bytes or not PIL_AVAILABLE or not ImageTk or not Image:
             return
         if self.progress_text is None:
@@ -1317,15 +1343,11 @@ class ManifestDownloader(ctk.CTk):
 
         try:
             pil_image = Image.open(BytesIO(image_bytes))
-
             width, height = pil_image.size
             if width > max_width or height > max_height:
-                if width / max_width > height / max_height:
-                    new_width = max_width
-                    new_height = int(new_width * height / width)
-                else:
-                    new_height = max_height
-                    new_width = int(new_height * width / height)
+                ratio = min(max_width / width, max_height / height)
+                new_width = int(width * ratio)
+                new_height = int(height * ratio)
                 pil_image = pil_image.resize(
                     (new_width, new_height), Image.Resampling.LANCZOS
                 )
@@ -1338,7 +1360,6 @@ class ManifestDownloader(ctk.CTk):
             self.image_references.append(ctk_image)
 
             self.progress_text.configure(state="normal")
-
             self.progress_text.insert(
                 END, "\n", ("game_detail_section", "game_image_line")
             )
@@ -1355,7 +1376,7 @@ class ManifestDownloader(ctk.CTk):
             self.progress_text.see(END)
         except Exception as e:
             self._append_progress_direct(
-                _("Error processing image for UI: {error}").format(
+                tr("Error processing image for UI: {error}").format(
                     error=self.stack_Error(e)
                 ),
                 "red",
@@ -1368,7 +1389,6 @@ class ManifestDownloader(ctk.CTk):
         appdetails_url = (
             f"https://store.steampowered.com/api/appdetails?appids={appid}&l=english"
         )
-
         logo_data: Optional[bytes] = None
         header_data: Optional[bytes] = None
         game_api_data: Optional[Dict[str, Any]] = None
@@ -1376,82 +1396,80 @@ class ManifestDownloader(ctk.CTk):
         async with aiohttp.ClientSession() as session:
             tasks = []
             if PIL_AVAILABLE:
-
                 tasks.append(asyncio.create_task(self._download_image_async(logo_url)))
                 tasks.append(
                     asyncio.create_task(self._download_image_async(header_url))
                 )
-
             tasks.append(
                 asyncio.create_task(
                     session.get(appdetails_url, timeout=aiohttp.ClientTimeout(total=20))
                 )
             )
-
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
             result_idx = 0
             if PIL_AVAILABLE:
-                if not isinstance(results[result_idx], Exception):
-                    logo_data = results[result_idx]
+                logo_result = results[result_idx]
                 result_idx += 1
-
-                if not isinstance(results[result_idx], Exception):
-                    header_data = results[result_idx]
+                if not isinstance(logo_result, Exception):
+                    logo_data = logo_result
+                header_result = results[result_idx]
                 result_idx += 1
+                if not isinstance(header_result, Exception):
+                    header_data = header_result
 
-            appdetails_response = results[result_idx]
-            if (
-                not isinstance(appdetails_response, Exception)
-                and appdetails_response.status == 200
-            ):
-                try:
-                    api_json = await appdetails_response.json()
-                    if api_json and api_json.get(appid, {}).get("success"):
-                        game_api_data = api_json[appid]["data"]
-                    else:
-                        pass
-                except json.JSONDecodeError:
+            appdetails_response_or_exc = results[result_idx]
+            if not isinstance(appdetails_response_or_exc, Exception):
+                appdetails_response = appdetails_response_or_exc
+                if appdetails_response.status == 200:
+                    try:
+                        api_json = await appdetails_response.json()
+                        if api_json and api_json.get(appid, {}).get("success"):
+                            game_api_data = api_json[appid]["data"]
+                        else:
+                            self.append_progress(
+                                tr(
+                                    "Could not retrieve valid data for AppID {appid} from Steam API."
+                                ).format(appid=appid),
+                                "yellow",
+                                ("game_detail_section",),
+                            )
+                    except json.JSONDecodeError:
+                        self.append_progress(
+                            tr(
+                                "Failed to decode JSON for AppID {appid} details."
+                            ).format(appid=appid),
+                            "red",
+                            ("game_detail_section",),
+                        )
+                else:
                     self.append_progress(
-                        _("Failed to decode JSON for AppID {appid} details.").format(
-                            appid=appid
-                        ),
+                        tr(
+                            "Failed to fetch AppID {appid} details (Status: {status})."
+                        ).format(appid=appid, status=appdetails_response.status),
                         "red",
                         ("game_detail_section",),
                     )
-            elif isinstance(appdetails_response, Exception):
+            elif isinstance(appdetails_response_or_exc, Exception):
                 self.append_progress(
-                    _("Error fetching AppID {appid} details: {error}").format(
-                        appid=appid, error=self.stack_Error(appdetails_response)
+                    tr("Error fetching AppID {appid} details: {error}").format(
+                        appid=appid, error=self.stack_Error(appdetails_response_or_exc)
                     ),
                     "red",
                     ("game_detail_section",),
                 )
-            else:
-                self.append_progress(
-                    _(
-                        "Failed to fetch AppID {appid} details (Status: {status})."
-                    ).format(appid=appid, status=appdetails_response.status),
-                    "red",
-                    ("game_detail_section",),
-                )
 
-        self.append_progress(
-            f"{game_name}",
-            "game_title",
-            ("game_detail_section",),
-        )
+        self.append_progress(f"{game_name}", "game_title", ("game_detail_section",))
 
         if PIL_AVAILABLE:
             header_max_width = (
-                self.progress_text.winfo_width() - 12 if self.progress_text else 320
+                self.progress_text.winfo_width() - 20 if self.progress_text else 350
             )
             if header_max_width <= 50:
-                header_max_width = 320
-
+                header_max_width = 350
             if logo_data:
                 self.after(
-                    0, partial(self._process_and_insert_image_ui, logo_data, 330, 330)
+                    0, partial(self._process_and_insert_image_ui, logo_data, 330, 200)
                 )
             if header_data:
                 self.after(
@@ -1460,35 +1478,29 @@ class ManifestDownloader(ctk.CTk):
                         self._process_and_insert_image_ui,
                         header_data,
                         header_max_width,
-                        600,
+                        250,
                     ),
                 )
 
         description_parts = []
         if game_api_data:
-            short_desc = game_api_data.get("short_description")
-            if short_desc:
+            if short_desc := game_api_data.get("short_description"):
                 description_parts.append(f"{short_desc}")
-
-            genres_list = game_api_data.get("genres", [])
-            if genres_list:
-                genres = _("Genres: ") + ", ".join(
-                    [g["description"] for g in genres_list]
-                )
-                description_parts.append(genres)
-
-            release_date_info = game_api_data.get("release_date", {})
-            if release_date_info.get("date"):
+            if genres_list := game_api_data.get("genres", []):
                 description_parts.append(
-                    _("Release Date: ") + f"{release_date_info['date']}"
+                    tr("Genres: ") + ", ".join([g["description"] for g in genres_list])
                 )
+            if release_date_info := game_api_data.get("release_date", {}):
+                if release_date_info.get("date"):
+                    description_parts.append(
+                        tr("Release Date: ") + f"{release_date_info['date']}"
+                    )
 
         if description_parts:
-
             self.after(
                 100,
-                lambda d=description_parts: self.append_progress(
-                    "\n" + "\n\n".join(d),
+                lambda d_parts=description_parts: self.append_progress(
+                    "\n" + "\n\n".join(d_parts),
                     "game_description",
                     ("game_detail_section",),
                 ),
@@ -1497,7 +1509,7 @@ class ManifestDownloader(ctk.CTk):
             self.after(
                 100,
                 lambda: self.append_progress(
-                    _("No detailed text information found for this game."),
+                    tr("No detailed text information found for this game."),
                     "yellow",
                     ("game_detail_section",),
                 ),
@@ -1509,59 +1521,59 @@ class ManifestDownloader(ctk.CTk):
         ]
         if not selected_repo_list:
             messagebox.showwarning(
-                _("Repository Selection"), _("Please select at least one repository.")
+                tr("Repository Selection"), tr("Please select at least one repository.")
             )
             return
 
         appids_to_download: List[Tuple[str, str]] = []
-
         if self.download_mode_var.get() == "selected_game":
             if not self.selected_appid or not self.selected_game_name:
                 messagebox.showwarning(
-                    _("Selection Error"), _("Please select a game first.")
+                    tr("Selection Error"),
+                    tr("Please select a game first from search results."),
                 )
                 return
             appids_to_download.append((self.selected_appid, self.selected_game_name))
         else:
             user_input = self.game_input.get().strip()
-
-            unique_appids_str = []
-            seen_appids = set()
+            unique_appids_str, seen_appids = [], set()
             for s in user_input.replace(",", "\n").splitlines():
                 stripped_s = s.strip()
                 if stripped_s.isdigit() and stripped_s not in seen_appids:
                     unique_appids_str.append(stripped_s)
                     seen_appids.add(stripped_s)
-
             if not unique_appids_str:
                 messagebox.showwarning(
-                    _("Input Error"),
-                    _("Please enter AppIDs in the input field for batch download."),
+                    tr("Input Error"),
+                    tr(
+                        "Please enter valid AppIDs in the input field for batch download mode."
+                    ),
                 )
                 return
-
             for appid_str in unique_appids_str:
                 game_name = self.appid_to_game.get(appid_str)
                 if not game_name and self.app_list_loaded_event.is_set():
-
-                    found_app_info = next(
+                    if found_app_info := next(
                         (
                             app
                             for app in self.steam_app_list
                             if str(app.get("appid")) == appid_str
                         ),
                         None,
-                    )
-                    if found_app_info:
+                    ):
                         game_name = found_app_info.get("name")
-
                 appids_to_download.append(
                     (appid_str, game_name if game_name else f"AppID_{appid_str}")
                 )
 
+        if not appids_to_download:
+            messagebox.showerror(
+                tr("Error"), tr("No AppIDs selected or found for download.")
+            )
+            return
+
         self.download_button.configure(state="disabled")
         self._clear_and_reinitialize_progress_area()
-
         self.cancel_search = False
         threading.Thread(
             target=self.run_batch_download,
@@ -1578,18 +1590,21 @@ class ManifestDownloader(ctk.CTk):
             total_appids = len(appids_to_download)
             for i, (appid, game_name) in enumerate(appids_to_download):
                 if self.cancel_search:
-                    self.append_progress(_("Batch download cancelled."), "yellow")
+                    self.append_progress(
+                        tr("Batch download process cancelled by user."), "yellow"
+                    )
                     break
-
                 self.append_progress(
-                    _(
-                        "Downloading AppID: {current_appid} ({index}/{total_appids})"
+                    tr(
+                        "\n--- Downloading AppID: {current_appid} ({game_name}) - {index}/{total_appids} ---"
                     ).format(
-                        current_appid=appid, index=i + 1, total_appids=total_appids
+                        current_appid=appid,
+                        game_name=game_name,
+                        index=i + 1,
+                        total_appids=total_appids,
                     ),
                     "blue",
                 )
-
                 collected_depots, output_path_or_processing_dir, source_was_branch = (
                     download_loop.run_until_complete(
                         self._perform_download_operations(
@@ -1597,88 +1612,111 @@ class ManifestDownloader(ctk.CTk):
                         )
                     )
                 )
-
                 if self.cancel_search:
-                    self.append_progress(_("\nDownload cancelled."), "yellow")
+                    self.append_progress(
+                        tr(
+                            "\nDownload cancelled during processing of AppID {appid}."
+                        ).format(appid=appid),
+                        "yellow",
+                    )
                     break
+                if not source_was_branch:
+                    if output_path_or_processing_dir and os.path.isdir(
+                        output_path_or_processing_dir
+                    ):
+                        processing_dir = output_path_or_processing_dir
+                        lua_script: str = self.parse_vdf_to_lua(
+                            collected_depots, appid, processing_dir
+                        )
+                        lua_file_path: str = os.path.join(
+                            processing_dir, f"{appid}.lua"
+                        )
+                        try:
+                            download_loop.run_until_complete(
+                                self._write_lua_file(lua_file_path, lua_script)
+                            )
+                            self.append_progress(
+                                tr(
+                                    "\nGenerated LUA unlock script: {lua_file_path}"
+                                ).format(lua_file_path=lua_file_path),
+                                "blue",
+                            )
+                        except Exception as e:
+                            self.append_progress(
+                                tr(
+                                    "\nFailed to write LUA script {lua_file_path}: {error}"
+                                ).format(
+                                    lua_file_path=lua_file_path,
+                                    error=self.stack_Error(e),
+                                ),
+                                "red",
+                            )
 
-                if source_was_branch:
+                        final_zip_path = self.zip_outcome(
+                            processing_dir, selected_repos
+                        )
+                        if not collected_depots and self.strict_validation_var.get():
+                            self.append_progress(
+                                tr(
+                                    "\nWarning: Strict validation was ON, but no decryption keys were found/extracted. LUA script will be minimal and game may not work."
+                                ),
+                                "yellow",
+                            )
+                        elif (
+                            not collected_depots
+                            and not self.strict_validation_var.get()
+                        ):
+                            self.append_progress(
+                                tr(
+                                    "\nNotice: No decryption keys found/extracted (strict validation was OFF). All downloaded files (if any) are included. Game may not work without keys."
+                                ),
+                                "yellow",
+                            )
+                        elif final_zip_path:
+                            self.append_progress(
+                                tr(
+                                    "\nSuccessfully processed and zipped non-Branch repo for AppID {appid} to {final_zip_path}"
+                                ).format(appid=appid, final_zip_path=final_zip_path),
+                                "green",
+                            )
+                    else:
+                        if not self.cancel_search:
+                            self.append_progress(
+                                tr(
+                                    "\nDownload/processing failed for AppID {appid} (non-Branch). No files to package."
+                                ).format(appid=appid),
+                                "red",
+                            )
+                            if output_path_or_processing_dir:
+                                self.append_progress(
+                                    tr(
+                                        "  Problematic path was: {output_path_or_processing_dir}"
+                                    ).format(
+                                        output_path_or_processing_dir=output_path_or_processing_dir
+                                    ),
+                                    "red",
+                                )
+                elif source_was_branch:
                     if output_path_or_processing_dir and os.path.isfile(
                         output_path_or_processing_dir
                     ):
                         self.append_progress(
-                            _(f"\nBranch repo download successful."), "green"
+                            f"\nBranch repository download successful for AppID {appid}.",
+                            "green",
                         )
                         self.append_progress(
-                            _(
-                                f"Output saved directly to: {output_path_or_processing_dir}"
-                            ),
+                            f"  Output saved directly to: {output_path_or_processing_dir}",
                             "blue",
                         )
                     else:
                         self.append_progress(
-                            _(
-                                "\nBranch repo download completed, but the expected zip file was not found or path was invalid."
-                            ),
+                            tr(
+                                "\nBranch repository download for AppID {appid} seems complete, but the expected zip file was not found or path was invalid."
+                            ).format(appid=appid),
                             "red",
                         )
-                elif output_path_or_processing_dir and os.path.isdir(
-                    output_path_or_processing_dir
-                ):
-                    processing_dir = output_path_or_processing_dir
-                    lua_script: str = self.parse_vdf_to_lua(
-                        collected_depots, appid, processing_dir
-                    )
-                    lua_file_path: str = os.path.join(processing_dir, f"{appid}.lua")
-                    try:
-
-                        download_loop.run_until_complete(
-                            self._write_lua_file(lua_file_path, lua_script)
-                        )
-                        self.append_progress(
-                            _(f"\nGenerated {game_name} unlock file: {lua_file_path}"),
-                            "blue",
-                        )
-                    except Exception as e:
-                        self.append_progress(
-                            _(f"\nFailed to write Lua script: {self.stack_Error(e)}"),
-                            "red",
-                        )
-
-                    final_zip_path = self.zip_outcome(processing_dir, selected_repos)
-
-                    if not collected_depots and self.strict_validation_var.get():
-                        self.append_progress(
-                            _(
-                                "\nWarning: Strict validation was on, but no decryption keys were found. LUA script is minimal."
-                            ),
-                            "yellow",
-                        )
-                    elif not collected_depots and not self.strict_validation_var.get():
-                        self.append_progress(
-                            _(
-                                "\nNo decryption keys found (strict validation was off). Files downloaded if available. LUA script is minimal."
-                            ),
-                            "yellow",
-                        )
-                else:
-                    if not self.cancel_search:
-                        self.append_progress(
-                            _(
-                                "\nDownload process failed or was interrupted before any files could be saved or path was invalid."
-                            ),
-                            "red",
-                        )
-                    if output_path_or_processing_dir:
-                        self.append_progress(
-                            _(
-                                "Returned path was: {output_path_or_processing_dir}"
-                            ).format(
-                                output_path_or_processing_dir=output_path_or_processing_dir
-                            ),
-                            "red",
-                        )
-            self.append_progress(_("Batch download finished."), "green")
+                self.append_progress("---", "default")
+            self.append_progress(tr("\nBatch download process finished."), "green")
             self.after(0, self.display_downloaded_manifests)
         finally:
             download_loop.close()
@@ -1704,31 +1742,67 @@ class ManifestDownloader(ctk.CTk):
             f"https://raw.githubusercontent.com/{repo}/{sha}/{path}",
         ]
         max_retries_per_url, overall_attempts = 1, 2
+        github_auth_headers = self._get_github_headers()
+
         async with aiohttp.ClientSession() as session:
             for attempt in range(overall_attempts):
+                if self.cancel_search:
+                    break
                 for url in url_list:
                     if self.cancel_search:
                         self.print_colored_ui(
-                            _("\nDownload cancelled by user for: {path}").format(
-                                path=path
-                            ),
+                            tr(
+                                "\nDownload cancelled by user for: {path} from {url_short}"
+                            ).format(path=path, url_short=url.split("/")[2]),
                             "yellow",
                         )
                         return None
-                    for _ in range(max_retries_per_url + 1):
+
+                    current_request_headers = {}
+                    if "raw.githubusercontent.com" in url and github_auth_headers:
+                        current_request_headers = github_auth_headers.copy()
+                        if (
+                            "Accept" in current_request_headers
+                            and "json" in current_request_headers["Accept"]
+                        ):
+                            del current_request_headers["Accept"]
+
+                    for retry_num in range(max_retries_per_url + 1):
+                        if self.cancel_search:
+                            return None
                         try:
+                            self.print_colored_ui(
+                                f"... Trying {url.split('/')[2]} for {os.path.basename(path)} (Attempt {retry_num+1})",
+                                "default",
+                            )
                             async with session.get(
-                                url, ssl=False, timeout=aiohttp.ClientTimeout(total=20)
+                                url,
+                                headers=current_request_headers,
+                                ssl=False,
+                                timeout=aiohttp.ClientTimeout(total=20),
                             ) as r:
                                 if r.status == 200:
+                                    self.print_colored_ui(
+                                        f"OK from {url.split('/')[2]}", "green"
+                                    )
                                     return await r.read()
                                 if r.status == 404:
+                                    self.print_colored_ui(
+                                        f"404 from {url.split('/')[2]}", "yellow"
+                                    )
                                     break
-                        except (aiohttp.ClientError, asyncio.TimeoutError):
-                            pass
+                                self.print_colored_ui(
+                                    f"Status {r.status} from {url.split('/')[2]}",
+                                    "yellow",
+                                )
+                        except (aiohttp.ClientError, asyncio.TimeoutError) as e_req:
+                            self.print_colored_ui(
+                                f"Error with {url.split('/')[2]}: {self.stack_Error(e_req)}",
+                                "yellow",
+                            )
                         except KeyboardInterrupt:
                             self.print_colored_ui(
-                                _("\nDownload interrupted by user for: {path}").format(
+                                tr("\nDownload interrupted by user for: {path}").format(
                                     path=path
                                 ),
                                 "yellow",
@@ -1737,12 +1811,14 @@ class ManifestDownloader(ctk.CTk):
                             return None
                         if self.cancel_search:
                             return None
-                        await asyncio.sleep(0.5)
+                        if retry_num < max_retries_per_url:
+                            await asyncio.sleep(0.5)
+
                 if self.cancel_search:
                     return None
                 if attempt < overall_attempts - 1:
                     self.print_colored_ui(
-                        _(
+                        tr(
                             "\nRetrying download cycle for: {path} (Cycle {attempt_plus_2}/{overall_attempts})"
                         ).format(
                             path=path,
@@ -1754,7 +1830,10 @@ class ManifestDownloader(ctk.CTk):
                     await asyncio.sleep(1)
         if not self.cancel_search:
             self.print_colored_ui(
-                _("\nMaximum attempts exceeded for: {path}").format(path=path), "red"
+                tr(
+                    "\nMaximum attempts exceeded for: {path}. File could not be downloaded."
+                ).format(path=path),
+                "red",
             )
         return None
 
@@ -1767,55 +1846,66 @@ class ManifestDownloader(ctk.CTk):
             parent_dir = os.path.dirname(file_save_path)
             if parent_dir and not os.path.exists(parent_dir):
                 os.makedirs(parent_dir, exist_ok=True)
-            content_bytes, should_download = None, True
+            content_bytes: Optional[bytes] = None
+            should_download = True
+
             if os.path.exists(file_save_path):
                 if path.lower().endswith(".manifest"):
                     should_download = False
                     self.print_colored_ui(
-                        _("Manifest file {path} already exists. Using local.").format(
-                            path=path
-                        ),
+                        tr(
+                            "Manifest file {path} already exists. Using local version."
+                        ).format(path=path),
                         "default",
                     )
-                if path.lower().endswith((".vdf")):
+                elif path.lower().endswith((".vdf")):
                     try:
                         async with aiofiles.open(
                             file_save_path, "rb"
                         ) as f_existing_bytes:
                             content_bytes = await f_existing_bytes.read()
-                            should_download = False
-                            self.print_colored_ui(
-                                _("Using local VDF file: {path}").format(path=path),
-                                "default",
-                            )
+                        should_download = False
+                        self.print_colored_ui(
+                            tr(
+                                "Key/Config VDF file {path} already exists. Using local version for key extraction."
+                            ).format(path=path),
+                            "default",
+                        )
                     except Exception as e_read:
                         self.print_colored_ui(
-                            _(
-                                "Could not read existing local file {path}: {error}, attempting download."
+                            tr(
+                                "Could not read existing local file {path}: {error}. Attempting fresh download."
                             ).format(path=path, error=self.stack_Error(e_read)),
                             "yellow",
                         )
                         content_bytes = None
                         should_download = True
+
             if should_download and not self.cancel_search:
+                self.print_colored_ui(
+                    tr(
+                        "Downloading: {path} from repo {repo} (commit: {sha_short})"
+                    ).format(path=path, repo=repo, sha_short=sha[:7]),
+                    "default",
+                )
                 content_bytes = await self.get(sha, path, repo)
+
             if self.cancel_search:
                 return collected_depots
             if content_bytes:
                 if should_download:
                     async with aiofiles.open(file_save_path, "wb") as f_new:
                         await f_new.write(content_bytes)
-                        self.print_colored_ui(
-                            _("\nFile download/update successful: {path}").format(
-                                path=path
-                            ),
-                            "green",
-                        )
+                    self.print_colored_ui(
+                        tr("\nFile downloaded and saved: {path}").format(path=path),
+                        "green",
+                    )
                 if path.lower().endswith((".vdf")):
                     try:
-                        depots_config = vdf.loads(
-                            content_bytes.decode(encoding="utf-8", errors="ignore")
+                        vdf_content_str = content_bytes.decode(
+                            encoding="utf-8", errors="ignore"
                         )
+                        depots_config = vdf.loads(vdf_content_str)
                         depots_data = depots_config.get("depots", {})
                         if not isinstance(depots_data, dict):
                             depots_data = {}
@@ -1834,8 +1924,8 @@ class ManifestDownloader(ctk.CTk):
                                     new_keys_count += 1
                         if new_keys_count > 0:
                             self.print_colored_ui(
-                                _(
-                                    "Extracted {new_keys_count} new keys from {path}"
+                                tr(
+                                    "Extracted {new_keys_count} new decryption keys from {path}"
                                 ).format(new_keys_count=new_keys_count, path=path),
                                 "magenta",
                             )
@@ -1844,31 +1934,36 @@ class ManifestDownloader(ctk.CTk):
                             "config.vdf",
                         ]:
                             self.print_colored_ui(
-                                _("No 'depots' section or empty in {path}").format(
-                                    path=path
-                                ),
+                                tr(
+                                    "Warning: No 'depots' section or section is empty in {path}."
+                                ).format(path=path),
                                 "yellow",
                             )
                     except Exception as e_vdf:
                         self.print_colored_ui(
-                            _(
-                                "\nFailed to parse VDF content for {path}: {error}"
+                            tr(
+                                "\nFailed to parse VDF content for {path}: {error}. This file may be malformed or not a standard VDF."
                             ).format(path=path, error=self.stack_Error(e_vdf)),
                             "red",
                         )
             elif should_download and not os.path.exists(file_save_path):
                 self.print_colored_ui(
-                    _("\nFailed to download file: {path}").format(path=path), "red"
+                    tr("\nFailed to download or find local file: {path}").format(
+                        path=path
+                    ),
+                    "red",
                 )
         except KeyboardInterrupt:
             self.print_colored_ui(
-                _("\nProcessing interrupted by user for: {path}").format(path=path),
+                tr("\nFile processing interrupted by user for: {path}").format(
+                    path=path
+                ),
                 "yellow",
             )
             self.cancel_search = True
         except Exception as e:
             self.print_colored_ui(
-                _("\nProcessing failed for {path}: {error}").format(
+                tr("\nAn error occurred while processing file {path}: {error}").format(
                     path=path, error=self.stack_Error(e)
                 ),
                 "red",
@@ -1878,68 +1973,89 @@ class ManifestDownloader(ctk.CTk):
     async def _fetch_branch_zip_content(
         self, repo_full_name: str, app_id: str
     ) -> Optional[bytes]:
-        url = f"https://github.com/{repo_full_name}/archive/refs/heads/{app_id}.zip"
+        api_url = f"https://api.github.com/repos/{repo_full_name}/zipball/{app_id}"
+        github_auth_headers = self._get_github_headers()
+        request_headers = {}
+        if github_auth_headers:
+            request_headers.update(github_auth_headers)
         self.print_colored_ui(
-            _("Attempting to download branch zip: {url}").format(url=url), "default"
+            tr("Attempting to download branch zip (API): {url}").format(url=api_url)
+            + (" " + tr("(with token)") if github_auth_headers else tr("(no token)")),
+            "default",
         )
-        try:
-            async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession() as session:
+            try:
                 async with session.get(
-                    url, timeout=aiohttp.ClientTimeout(total=600)
+                    api_url,
+                    headers=request_headers,
+                    timeout=aiohttp.ClientTimeout(total=600),
                 ) as r:
                     if r.status == 200:
                         self.print_colored_ui(
-                            _(
+                            tr(
                                 "Successfully started downloading branch zip for AppID {app_id} from {repo_full_name}."
                             ).format(app_id=app_id, repo_full_name=repo_full_name),
                             "green",
                         )
                         content = await r.read()
                         self.print_colored_ui(
-                            _(
-                                "Finished downloading branch zip for AppID {app_id}."
-                            ).format(app_id=app_id),
+                            tr(
+                                "Finished downloading branch zip content for AppID {app_id} (Size: {size_kb:.2f} KB)."
+                            ).format(app_id=app_id, size_kb=len(content) / 1024),
                             "green",
                         )
                         return content
                     else:
-                        self.print_colored_ui(
-                            _(
-                                "Failed to download branch zip (Status: {status}) from {url}"
-                            ).format(status=r.status, url=url),
-                            "red",
-                        )
+                        error_message = tr(
+                            "Failed to download branch zip (Status: {status}) from {url}"
+                        ).format(status=r.status, url=api_url)
+                        if r.status == 401 and github_auth_headers:
+                            error_message += " - " + tr(
+                                "Unauthorized. Check token permissions or if token is valid."
+                            )
+                        elif r.status == 404:
+                            error_message += " - " + tr(
+                                "Not Found. Ensure repository '{repo_full_name}' and branch '{app_id}' exist."
+                            ).format(repo_full_name=repo_full_name, app_id=app_id)
+                        self.print_colored_ui(error_message, "red")
+                        if r.status != 404:
+                            try:
+                                self.print_colored_ui(
+                                    f"  Response: {(await r.text())[:200]}...", "red"
+                                )
+                            except:
+                                pass
                         return None
-        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-            self.print_colored_ui(
-                _("Error downloading branch zip from {url}: {error}").format(
-                    url=url, error=self.stack_Error(e)
-                ),
-                "red",
-            )
-            return None
-        except Exception as e:
-            self.print_colored_ui(
-                _("Unexpected error fetching branch zip {url}: {error}").format(
-                    url=url, error=self.stack_Error(e)
-                ),
-                "red",
-            )
-            return None
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                self.print_colored_ui(
+                    tr(
+                        "Network or Timeout error downloading branch zip from {url}: {error}"
+                    ).format(url=api_url, error=self.stack_Error(e)),
+                    "red",
+                )
+                return None
+            except Exception as e:
+                self.print_colored_ui(
+                    tr("Unexpected error fetching branch zip {url}: {error}").format(
+                        url=api_url, error=self.stack_Error(e)
+                    ),
+                    "red",
+                )
+                return None
 
     async def _perform_download_operations(
         self, app_id_input: str, game_name: str, selected_repos: List[str]
     ) -> Tuple[List[Tuple[str, str]], Optional[str], bool]:
-        app_id_list = [s for s in app_id_input.strip().split("-") if s.isdecimal()]
-        if not app_id_list:
+        app_id_match = re.match(r"^\d+", app_id_input)
+        if not app_id_match:
             self.print_colored_ui(
-                _("\nInvalid AppID format: {app_id_input}").format(
-                    app_id_input=app_id_input
-                ),
+                tr(
+                    "\nInvalid AppID format for download: {app_id_input}. Expected numeric AppID."
+                ).format(app_id_input=app_id_input),
                 "red",
             )
             return [], None, False
-        app_id = app_id_list[0]
+        app_id = app_id_match.group(0)
         sanitized_game_name = (
             "".join(c if c.isalnum() or c in " -_" else "" for c in game_name).strip()
             or f"AppID_{app_id}"
@@ -1950,31 +2066,38 @@ class ManifestDownloader(ctk.CTk):
             os.makedirs(output_base_dir, exist_ok=True)
         except OSError as e:
             self.print_colored_ui(
-                _(
+                tr(
                     "Error creating base output directory {output_base_dir}: {error}"
                 ).format(output_base_dir=output_base_dir, error=self.stack_Error(e)),
                 "red",
             )
             return [], None, False
+
         overall_collected_depots: List[Tuple[str, str]] = []
+        github_auth_headers = self._get_github_headers()
+
         for repo_full_name in selected_repos:
             if self.cancel_search:
                 self.print_colored_ui(
-                    _("\nDownload process cancelled by user."), "yellow"
+                    tr(
+                        "\nDownload process cancelled by user before processing repo: {repo_full_name}."
+                    ).format(repo_full_name=repo_full_name),
+                    "yellow",
                 )
                 return overall_collected_depots, None, False
             repo_type = self.repos.get(repo_full_name)
             if not repo_type:
                 self.print_colored_ui(
-                    _(
-                        "Repository {repo_full_name} not found in known repos. Skipping."
+                    tr(
+                        "Repository {repo_full_name} type not found in local list. Skipping."
                     ).format(repo_full_name=repo_full_name),
                     "yellow",
                 )
                 continue
+
             if repo_type == "Branch":
                 self.print_colored_ui(
-                    _(
+                    tr(
                         "\nProcessing BRANCH repository: {repo_full_name} for AppID: {app_id}"
                     ).format(repo_full_name=repo_full_name, app_id=app_id),
                     "cyan",
@@ -1984,8 +2107,8 @@ class ManifestDownloader(ctk.CTk):
                 )
                 if os.path.exists(final_branch_zip_path):
                     self.print_colored_ui(
-                        _(
-                            "Branch ZIP already exists: {final_branch_zip_path}. Skipping download."
+                        tr(
+                            "Branch ZIP already exists: {final_branch_zip_path}. Skipping download for this repo."
                         ).format(final_branch_zip_path=final_branch_zip_path),
                         "blue",
                     )
@@ -1995,24 +2118,30 @@ class ManifestDownloader(ctk.CTk):
                 )
                 if self.cancel_search:
                     self.print_colored_ui(
-                        _("\nDownload cancelled during branch zip fetch."), "yellow"
+                        tr(
+                            "\nDownload cancelled during branch zip fetch from {repo_full_name}."
+                        ).format(repo_full_name=repo_full_name),
+                        "yellow",
                     )
                     return [], None, False
                 if zip_content:
                     try:
                         async with aiofiles.open(final_branch_zip_path, "wb") as f_zip:
                             await f_zip.write(zip_content)
-                            self.print_colored_ui(
-                                _(
-                                    "Successfully saved branch download to {final_branch_zip_path}"
-                                ).format(final_branch_zip_path=final_branch_zip_path),
-                                "green",
-                            )
-                            return [], final_branch_zip_path, True
+                        self.print_colored_ui(
+                            tr(
+                                "Successfully saved branch download from {repo_full_name} to {final_branch_zip_path}"
+                            ).format(
+                                repo_full_name=repo_full_name,
+                                final_branch_zip_path=final_branch_zip_path,
+                            ),
+                            "green",
+                        )
+                        return [], final_branch_zip_path, True
                     except Exception as e_save:
                         self.print_colored_ui(
-                            _(
-                                "Failed to save branch zip to {final_branch_zip_path}: {error}"
+                            tr(
+                                "Failed to save downloaded branch zip to {final_branch_zip_path}: {error}"
                             ).format(
                                 final_branch_zip_path=final_branch_zip_path,
                                 error=self.stack_Error(e_save),
@@ -2021,190 +2150,220 @@ class ManifestDownloader(ctk.CTk):
                         )
                 else:
                     self.print_colored_ui(
-                        _(
-                            "Failed to download content for branch repo {repo_full_name}, AppID {app_id}. Trying next repo."
+                        tr(
+                            "Failed to download content for branch repo {repo_full_name}, AppID {app_id}. Trying next selected repo."
                         ).format(repo_full_name=repo_full_name, app_id=app_id),
                         "yellow",
                     )
                 continue
+
             processing_dir_non_branch = os.path.join(
-                output_base_dir, final_output_name_stem
+                output_base_dir, f"_{final_output_name_stem}_temp"
             )
             try:
                 os.makedirs(processing_dir_non_branch, exist_ok=True)
             except OSError as e_mkdir:
                 self.print_colored_ui(
-                    _(
-                        "Error creating processing directory {processing_dir_non_branch}: {error}. Skipping repo."
+                    tr(
+                        "Error creating temporary processing directory {processing_dir_non_branch}: {error}. Skipping repo {repo_full_name}."
                     ).format(
                         processing_dir_non_branch=processing_dir_non_branch,
                         error=self.stack_Error(e_mkdir),
+                        repo_full_name=repo_full_name,
                     ),
                     "red",
                 )
                 continue
+
             self.print_colored_ui(
-                _(
+                tr(
                     "\nSearching NON-BRANCH repository: {repo_full_name} for AppID: {app_id} (Type: {repo_type})"
                 ).format(
                     repo_full_name=repo_full_name, app_id=app_id, repo_type=repo_type
                 ),
                 "cyan",
             )
-            api_url, repo_specific_collected_depots = (
-                f"https://api.github.com/repos/{repo_full_name}/branches/{app_id}",
-                [],
+            branch_api_url = (
+                f"https://api.github.com/repos/{repo_full_name}/branches/{app_id}"
             )
+            repo_specific_collected_depots: List[Tuple[str, str]] = []
+
             async with aiohttp.ClientSession() as session:
                 try:
+                    current_api_headers = (
+                        github_auth_headers.copy() if github_auth_headers else {}
+                    )
                     async with session.get(
-                        api_url, ssl=False, timeout=aiohttp.ClientTimeout(total=15)
-                    ) as r_b:
-                        if r_b.status != 200:
+                        branch_api_url,
+                        headers=current_api_headers,
+                        ssl=False,
+                        timeout=aiohttp.ClientTimeout(total=15),
+                    ) as r_branch:
+                        if r_branch.status != 200:
+                            status_msg = tr(
+                                "AppID {app_id} not found as a branch in {repo_full_name} (Status: {status})."
+                            ).format(
+                                app_id=app_id,
+                                repo_full_name=repo_full_name,
+                                status=r_branch.status,
+                            )
+                            if r_branch.status == 401 and current_api_headers:
+                                status_msg += " " + tr("Auth failed. Check token.")
+                            elif r_branch.status == 404:
+                                status_msg += " " + tr("Branch likely does not exist.")
                             self.print_colored_ui(
-                                _(
-                                    "AppID {app_id} not found as a branch in {repo_full_name} (Status: {status}). Trying next repo."
-                                ).format(
-                                    app_id=app_id,
-                                    repo_full_name=repo_full_name,
-                                    status=r_b.status,
-                                ),
-                                "yellow",
+                                status_msg + tr(" Trying next selected repo."), "yellow"
                             )
                             continue
-                        r_b_json = await r_b.json()
-                        commit_data, sha, tree_url_base, date = (
-                            r_b_json.get("commit", {}),
-                            None,
-                            None,
-                            _("Unknown date"),
+
+                        branch_json = await r_branch.json()
+                        commit_data = branch_json.get("commit", {})
+                        sha = commit_data.get("sha")
+                        tree_url_base = (
+                            commit_data.get("commit", {}).get("tree", {}).get("url")
                         )
-                        sha, tree_url_base = commit_data.get("sha"), commit_data.get(
-                            "commit", {}
-                        ).get("tree", {}).get("url")
-                        date = (
+                        commit_date = (
                             commit_data.get("commit", {})
                             .get("author", {})
-                            .get("date", _("Unknown date"))
+                            .get("date", tr("Unknown date"))
                         )
                         if not sha or not tree_url_base:
                             self.print_colored_ui(
-                                _(
-                                    "Invalid branch data (missing SHA or tree URL) for {repo_full_name}/{app_id}. Trying next repo."
+                                tr(
+                                    "Invalid branch data (missing SHA or tree URL) for {repo_full_name}/{app_id}. Trying next selected repo."
                                 ).format(repo_full_name=repo_full_name, app_id=app_id),
                                 "red",
                             )
                             continue
+
                         tree_url_recursive = f"{tree_url_base}?recursive=1"
                         async with session.get(
                             tree_url_recursive,
+                            headers=current_api_headers,
                             ssl=False,
                             timeout=aiohttp.ClientTimeout(total=30),
-                        ) as r_t:
-                            if r_t.status != 200:
+                        ) as r_tree:
+                            if r_tree.status != 200:
                                 self.print_colored_ui(
-                                    _(
-                                        "Failed to get tree data for {repo_full_name}/{app_id} (Status: {status}). Trying next repo."
+                                    tr(
+                                        "Failed to get file tree data for {repo_full_name}/{app_id} (Commit SHA: {sha}, Status: {status}). Trying next selected repo."
                                     ).format(
                                         repo_full_name=repo_full_name,
                                         app_id=app_id,
-                                        status=r_t.status,
+                                        sha=sha[:7],
+                                        status=r_tree.status,
                                     ),
                                     "red",
                                 )
                                 continue
-                            r_t_json = await r_t.json()
-                            if r_t_json.get("truncated"):
+                            tree_json = await r_tree.json()
+                            if tree_json.get("truncated"):
                                 self.print_colored_ui(
-                                    _(
-                                        "Warning: File tree for {repo_full_name}/{app_id} is truncated by GitHub API. Some files may be missed."
+                                    tr(
+                                        "Warning: File tree for {repo_full_name}/{app_id} is TRUNCATED by GitHub API. Some files may be missed. Consider repos with smaller AppID branches."
                                     ).format(
                                         repo_full_name=repo_full_name, app_id=app_id
                                     ),
                                     "yellow",
                                 )
-                            tree_items = r_t_json.get("tree", [])
+                            tree_items = tree_json.get("tree", [])
                             if not tree_items:
                                 self.print_colored_ui(
-                                    _(
-                                        "No files found in tree for {repo_full_name}/{app_id}. Trying next repo."
+                                    tr(
+                                        "No files found in tree for {repo_full_name}/{app_id} (Commit SHA: {sha}). Trying next selected repo."
                                     ).format(
-                                        repo_full_name=repo_full_name, app_id=app_id
+                                        repo_full_name=repo_full_name,
+                                        app_id=app_id,
+                                        sha=sha[:7],
                                     ),
                                     "yellow",
                                 )
                                 continue
-                            files_dl_proc_this_repo, key_file_found_proc = False, False
+
+                            files_downloaded_or_processed_this_repo = False
+                            key_file_found_and_processed_successfully = False
+
                             if self.strict_validation_var.get():
                                 self.print_colored_ui(
-                                    _(
-                                        "STRICT MODE: Processing branch {app_id} in {repo_full_name}..."
+                                    tr(
+                                        "STRICT MODE: Processing branch {app_id} in {repo_full_name} (Commit: {sha_short}, Date: {commit_date})"
                                     ).format(
-                                        app_id=app_id, repo_full_name=repo_full_name
+                                        app_id=app_id,
+                                        repo_full_name=repo_full_name,
+                                        sha_short=sha[:7],
+                                        commit_date=commit_date,
                                     ),
                                     "magenta",
                                 )
-                                for key_short_name in ["key.vdf", "config.vdf"]:
+                                key_file_paths_in_tree = {}
+                                for item in tree_items:
+                                    if item.get("type") == "blob":
+                                        item_path, item_basename_lower = item.get(
+                                            "path", ""
+                                        ), os.path.basename(
+                                            item.get("path", "").lower()
+                                        )
+                                        if item_basename_lower in [
+                                            "key.vdf",
+                                            "config.vdf",
+                                        ]:
+                                            key_file_paths_in_tree[item_path] = (
+                                                item_basename_lower
+                                            )
+                                prioritized_key_files = sorted(
+                                    key_file_paths_in_tree.keys(),
+                                    key=lambda p: (
+                                        key_file_paths_in_tree[p] != "key.vdf",
+                                        p,
+                                    ),
+                                )
+                                for actual_key_file_path in prioritized_key_files:
                                     if self.cancel_search:
                                         break
-                                    actual_key_file_path = next(
-                                        (
-                                            item.get("path")
-                                            for item in tree_items
-                                            if item.get("type") == "blob"
-                                            and os.path.basename(
-                                                item.get("path", "").lower()
-                                            )
-                                            == key_short_name
+                                    key_short_name = key_file_paths_in_tree[
+                                        actual_key_file_path
+                                    ]
+                                    self.print_colored_ui(
+                                        tr(
+                                            "STRICT: Found potential key file '{key_short_name}' at: {actual_key_file_path}. Attempting to process."
+                                        ).format(
+                                            key_short_name=key_short_name,
+                                            actual_key_file_path=actual_key_file_path,
                                         ),
-                                        None,
+                                        "default",
                                     )
-                                    if actual_key_file_path:
-                                        self.print_colored_ui(
-                                            _(
-                                                "STRICT: Found key file '{key_short_name}' at: {actual_key_file_path}"
-                                            ).format(
-                                                key_short_name=key_short_name,
-                                                actual_key_file_path=actual_key_file_path,
-                                            ),
-                                            "default",
-                                        )
-                                        depot_keys_vdf = await self.get_manifest(
-                                            sha,
-                                            actual_key_file_path,
-                                            processing_dir_non_branch,
-                                            repo_full_name,
-                                        )
-                                        if depot_keys_vdf:
-                                            [
+                                    depot_keys_from_vdf = await self.get_manifest(
+                                        sha,
+                                        actual_key_file_path,
+                                        processing_dir_non_branch,
+                                        repo_full_name,
+                                    )
+                                    if depot_keys_from_vdf:
+                                        for dk in depot_keys_from_vdf:
+                                            if dk not in repo_specific_collected_depots:
                                                 repo_specific_collected_depots.append(
                                                     dk
                                                 )
-                                                for dk in depot_keys_vdf
-                                                if dk
-                                                not in repo_specific_collected_depots
-                                            ]
-                                            (
-                                                files_dl_proc_this_repo,
-                                                key_file_found_proc,
-                                            ) = (True, True)
-                                        if (
-                                            key_short_name == "key.vdf"
-                                            and key_file_found_proc
-                                        ):
-                                            self.print_colored_ui(
-                                                _(
-                                                    "STRICT: Keys obtained from primary 'key.vdf'."
-                                                ),
-                                                "green",
-                                            )
+                                        (
+                                            files_downloaded_or_processed_this_repo,
+                                            key_file_found_and_processed_successfully,
+                                        ) = (True, True)
+                                        self.print_colored_ui(
+                                            tr(
+                                                "STRICT: Successfully processed keys from '{actual_key_file_path}'."
+                                            ).format(
+                                                actual_key_file_path=actual_key_file_path
+                                            ),
+                                            "green",
+                                        )
+                                        if key_short_name == "key.vdf":
                                             break
                                 if self.cancel_search:
                                     break
-                                if not key_file_found_proc:
+                                if not key_file_found_and_processed_successfully:
                                     self.print_colored_ui(
-                                        _(
-                                            "STRICT: No Key.vdf or Config.vdf found or processed successfully in {repo_full_name}/{app_id}. This repo may not yield usable data in strict mode."
+                                        tr(
+                                            "STRICT: No Key.vdf or Config.vdf found or processed successfully for keys in {repo_full_name}/{app_id}. This repo may not yield usable decryption data in strict mode. Manifests will still be downloaded if found."
                                         ).format(
                                             repo_full_name=repo_full_name, app_id=app_id
                                         ),
@@ -2225,21 +2384,23 @@ class ManifestDownloader(ctk.CTk):
                                             processing_dir_non_branch,
                                             repo_full_name,
                                         )
-                                        files_dl_proc_this_repo = (
-                                            True
-                                            if os.path.exists(
-                                                os.path.join(
-                                                    processing_dir_non_branch, item_path
-                                                )
+                                        if os.path.exists(
+                                            os.path.join(
+                                                processing_dir_non_branch, item_path
                                             )
-                                            else files_dl_proc_this_repo
-                                        )
-                            else:
+                                        ):
+                                            files_downloaded_or_processed_this_repo = (
+                                                True
+                                            )
+                            else:  # NON-STRICT
                                 self.print_colored_ui(
-                                    _(
-                                        "NON-STRICT MODE: Downloading all files from branch {app_id} in {repo_full_name}..."
+                                    tr(
+                                        "NON-STRICT MODE: Downloading all files from branch {app_id} in {repo_full_name} (Commit: {sha_short}, Date: {commit_date})"
                                     ).format(
-                                        app_id=app_id, repo_full_name=repo_full_name
+                                        app_id=app_id,
+                                        repo_full_name=repo_full_name,
+                                        sha_short=sha[:7],
+                                        commit_date=commit_date,
                                     ),
                                     "magenta",
                                 )
@@ -2248,61 +2409,65 @@ class ManifestDownloader(ctk.CTk):
                                         break
                                     item_path = item.get("path", "")
                                     if item.get("type") == "blob":
-                                        keys_file = await self.get_manifest(
+                                        keys_from_file = await self.get_manifest(
                                             sha,
                                             item_path,
                                             processing_dir_non_branch,
                                             repo_full_name,
                                         )
-                                        if keys_file:
-                                            [
-                                                repo_specific_collected_depots.append(
+                                        if keys_from_file:
+                                            for dk in keys_from_file:
+                                                if (
                                                     dk
-                                                )
-                                                for dk in keys_file
-                                                if dk
-                                                not in repo_specific_collected_depots
-                                            ]
-                                        files_dl_proc_this_repo = (
-                                            True
-                                            if os.path.exists(
-                                                os.path.join(
-                                                    processing_dir_non_branch, item_path
-                                                )
+                                                    not in repo_specific_collected_depots
+                                                ):
+                                                    repo_specific_collected_depots.append(
+                                                        dk
+                                                    )
+                                        if os.path.exists(
+                                            os.path.join(
+                                                processing_dir_non_branch, item_path
                                             )
-                                            else files_dl_proc_this_repo
-                                        )
+                                        ):
+                                            files_downloaded_or_processed_this_repo = (
+                                                True
+                                            )
+
                             if self.cancel_search:
                                 self.print_colored_ui(
-                                    _(
-                                        "\nDownload cancelled during processing of {repo_full_name}."
+                                    tr(
+                                        "\nDownload cancelled during file processing of {repo_full_name}."
                                     ).format(repo_full_name=repo_full_name),
                                     "yellow",
                                 )
                                 break
-                            repo_successful = False
+
+                            repo_considered_successful = False
                             if not self.cancel_search:
-                                repo_successful = (
-                                    bool(repo_specific_collected_depots)
-                                    if self.strict_validation_var.get()
-                                    else files_dl_proc_this_repo
-                                )
-                            if repo_successful:
+                                if self.strict_validation_var.get():
+                                    repo_considered_successful = (
+                                        bool(repo_specific_collected_depots)
+                                        and files_downloaded_or_processed_this_repo
+                                    )
+                                else:
+                                    repo_considered_successful = (
+                                        files_downloaded_or_processed_this_repo
+                                    )
+
+                            if repo_considered_successful:
                                 self.print_colored_ui(
-                                    _(
-                                        "\nData successfully processed for AppID {app_id} in {repo_full_name}. Last update: {date}"
+                                    tr(
+                                        "\nData successfully processed for AppID {app_id} from {repo_full_name}. (Commit Date: {commit_date})"
                                     ).format(
                                         app_id=app_id,
                                         repo_full_name=repo_full_name,
-                                        date=date,
+                                        commit_date=commit_date,
                                     ),
                                     "green",
                                 )
-                                overall_collected_depots.extend(
-                                    dk
-                                    for dk in repo_specific_collected_depots
-                                    if dk not in overall_collected_depots
-                                )
+                                for dk_tuple in repo_specific_collected_depots:
+                                    if dk_tuple not in overall_collected_depots:
+                                        overall_collected_depots.append(dk_tuple)
                                 return (
                                     overall_collected_depots,
                                     processing_dir_non_branch,
@@ -2311,8 +2476,8 @@ class ManifestDownloader(ctk.CTk):
                             else:
                                 if not self.cancel_search:
                                     self.print_colored_ui(
-                                        _(
-                                            "AppID {app_id} could not be successfully processed from any selected repository with current settings. Trying next repo."
+                                        tr(
+                                            "AppID {app_id} could not be successfully processed from {repo_full_name} with current settings. Files in processing dir (if any) will be from this attempt. Trying next selected repo."
                                         ).format(
                                             app_id=app_id, repo_full_name=repo_full_name
                                         ),
@@ -2322,19 +2487,19 @@ class ManifestDownloader(ctk.CTk):
                     aiohttp.ClientError,
                     asyncio.TimeoutError,
                     json.JSONDecodeError,
-                ) as e:
+                ) as e_api:
                     self.print_colored_ui(
-                        _(
-                            "\nNetwork/API error with {repo_full_name}: {error}. Trying next repo."
+                        tr(
+                            "\nNetwork/API error while processing {repo_full_name}: {error}. Trying next selected repo."
                         ).format(
-                            repo_full_name=repo_full_name, error=self.stack_Error(e)
+                            repo_full_name=repo_full_name, error=self.stack_Error(e_api)
                         ),
                         "red",
                     )
                 except KeyboardInterrupt:
                     self.print_colored_ui(
-                        _(
-                            "\nSearch interrupted by user for repository: {repo_full_name}"
+                        tr(
+                            "\nProcessing interrupted by user for repository: {repo_full_name}"
                         ).format(repo_full_name=repo_full_name),
                         "yellow",
                     )
@@ -2342,15 +2507,17 @@ class ManifestDownloader(ctk.CTk):
                     break
             if self.cancel_search:
                 break
+
         if self.cancel_search:
             self.print_colored_ui(
-                _("\nDownload process terminated by user request."), "yellow"
+                tr("\nDownload process terminated by user request."), "yellow"
             )
             return overall_collected_depots, None, False
+
         self.print_colored_ui(
-            _(
-                "\nAppID {app_id} could not be successfully processed from any selected repository with current settings."
-            ).format(app_id=app_id),
+            tr(
+                "\nAppID {app_id} ({game_name}) could not be successfully processed from ANY selected repository with current settings."
+            ).format(app_id=app_id, game_name=game_name),
             "red",
         )
         return overall_collected_depots, None, False
@@ -2358,61 +2525,57 @@ class ManifestDownloader(ctk.CTk):
     def parse_vdf_to_lua(
         self, depot_info: List[Tuple[str, str]], appid: str, processing_dir: str
     ) -> str:
-        lua_lines, processed_depots_for_setmanifest = [f"addappid({appid})"], set()
+        lua_lines: List[str] = [f"addappid({appid})"]
+        processed_depots_for_setmanifest = set()
+
         for depot_id, decryption_key in depot_info:
             lua_lines.append(f'addappid({depot_id},1,"{decryption_key}")')
             processed_depots_for_setmanifest.add(depot_id)
+
         if os.path.isdir(processing_dir):
-            all_manifest_files_in_dir = []
-            for root, dirs, files in os.walk(processing_dir):
-                [
-                    all_manifest_files_in_dir.append(os.path.join(root, f_name))
-                    for f_name in files
-                    if f_name.lower().endswith(".manifest")
-                ]
+            all_manifest_files_in_dir: List[str] = []
+            for root, _unused_dirs, files in os.walk(processing_dir):
+                for f_name in files:
+                    if f_name.lower().endswith(".manifest"):
+                        all_manifest_files_in_dir.append(os.path.join(root, f_name))
 
             def sort_key_manifest(filepath: str) -> Tuple[int, str]:
                 filename = os.path.basename(filepath)
-                depot_id_str = filename.split("_")[0] if "_" in filename else ""
-                manifest_id_val = ""
-                if filename.lower().endswith(".manifest"):
-                    name_no_suffix = filename[: -len(".manifest")]
-                    if depot_id_str and f"{depot_id_str}_" in name_no_suffix:
-                        manifest_id_val = name_no_suffix.split(f"{depot_id_str}_", 1)[1]
+                name_no_suffix = filename.rsplit(".manifest", 1)[0]
+                parts = name_no_suffix.split("_", 1)
+                depot_id_str, manifest_gid_val = parts[0], (
+                    parts[1] if len(parts) > 1 else ""
+                )
                 try:
                     depot_id_int = int(depot_id_str) if depot_id_str.isdigit() else 0
                 except ValueError:
+                    depot_id_int = 0
                     self.print_colored_ui(
-                        _(
-                            "Warning: Non-numeric depot ID '{depot_id_str}' in manifest filename '{filename}'. Using 0 for sorting."
+                        tr(
+                            "Warning: Non-numeric depot ID prefix '{depot_id_str}' in manifest filename '{filename}'. Using 0 for sorting."
                         ).format(depot_id_str=depot_id_str, filename=filename),
                         "yellow",
                     )
-                return (depot_id_int, manifest_id_val)
+                return (depot_id_int, manifest_gid_val)
 
             try:
                 all_manifest_files_in_dir.sort(key=sort_key_manifest)
             except Exception as e_sort:
                 self.print_colored_ui(
-                    _(
-                        "Warning: Could not fully sort manifest files for LUA generation due to naming or error: {error}"
+                    tr(
+                        "Warning: Could not fully sort manifest files for LUA generation due to naming or error: {error}. LUA script might be sub-optimal."
                     ).format(error=self.stack_Error(e_sort)),
                     "yellow",
                 )
+
             for manifest_full_path in all_manifest_files_in_dir:
                 manifest_filename = os.path.basename(manifest_full_path)
-                parts = manifest_filename.split("_")
-                depot_id_from_file = parts[0] if parts and parts[0].isdigit() else ""
-                manifest_gid_val = ""
-                if manifest_filename.lower().endswith(".manifest"):
-                    name_no_suffix = manifest_filename[: -len(".manifest")]
-                    if (
-                        depot_id_from_file
-                        and f"{depot_id_from_file}_" in name_no_suffix
-                    ):
-                        manifest_gid_val = name_no_suffix.split(
-                            f"{depot_id_from_file}_", 1
-                        )[1]
+                name_no_suffix = manifest_filename.rsplit(".manifest", 1)[0]
+                parts = name_no_suffix.split("_", 1)
+                depot_id_from_file, manifest_gid_val = parts[0], (
+                    parts[1] if len(parts) > 1 else ""
+                )
+
                 if depot_id_from_file.isdigit():
                     if depot_id_from_file not in processed_depots_for_setmanifest:
                         lua_lines.append(f"addappid({depot_id_from_file})")
@@ -2423,16 +2586,16 @@ class ManifestDownloader(ctk.CTk):
                         )
                     else:
                         self.print_colored_ui(
-                            _(
-                                "Could not parse Manifest GID from: {manifest_filename}"
+                            tr(
+                                "Could not parse Manifest GID from filename: {manifest_filename}. setManifestid entry will be skipped."
                             ).format(manifest_filename=manifest_filename),
                             "yellow",
                         )
                 else:
                     self.print_colored_ui(
-                        _("Could not parse DepotID from: {manifest_filename}").format(
-                            manifest_filename=manifest_filename
-                        ),
+                        tr(
+                            "Could not parse numeric DepotID from manifest filename: {manifest_filename}. Entry skipped."
+                        ).format(manifest_filename=manifest_filename),
                         "yellow",
                     )
         return "\n".join(lua_lines)
@@ -2442,8 +2605,8 @@ class ManifestDownloader(ctk.CTk):
     ) -> Optional[str]:
         if not os.path.isdir(processing_dir):
             self.print_colored_ui(
-                _(
-                    "Processing directory {processing_dir} not found for zipping. Skipping zip."
+                tr(
+                    "Processing directory {processing_dir} not found for zipping. Skipping zip creation."
                 ).format(processing_dir=processing_dir),
                 "red",
             )
@@ -2452,29 +2615,33 @@ class ManifestDownloader(ctk.CTk):
             self.repos.get(repo_name, "") == "Encrypted"
             for repo_name in selected_repos_for_zip
         )
-        strict_mode_active, key_files_to_exclude = self.strict_validation_var.get(), [
-            "key.vdf",
-            "config.vdf",
-        ]
-        final_zip_base_name, final_zip_parent_dir = os.path.basename(
-            os.path.normpath(processing_dir)
-        ), os.path.dirname(processing_dir)
+        strict_mode_active = self.strict_validation_var.get()
+        key_files_to_exclude_in_strict = ["key.vdf", "config.vdf"]
+        base_name_from_dir = os.path.basename(os.path.normpath(processing_dir))
+        final_zip_base_name = (
+            base_name_from_dir[1:-5]
+            if base_name_from_dir.startswith("_")
+            and base_name_from_dir.endswith("_temp")
+            else base_name_from_dir
+        )
+        final_zip_parent_dir = os.path.dirname(processing_dir)
         final_zip_name_suffix = " - encrypted.zip" if is_encrypted_source else ".zip"
         final_zip_name = final_zip_base_name + final_zip_name_suffix
         final_zip_path = os.path.join(final_zip_parent_dir, final_zip_name)
+
         if os.path.exists(final_zip_path):
             try:
                 os.remove(final_zip_path)
                 self.print_colored_ui(
-                    _("Removed existing zip: {final_zip_path}").format(
-                        final_zip_path=final_zip_path
-                    ),
+                    tr(
+                        "Removed existing zip file: {final_zip_path} before creating new one."
+                    ).format(final_zip_path=final_zip_path),
                     "yellow",
                 )
             except OSError as e_del_zip:
                 self.print_colored_ui(
-                    _(
-                        "Error removing existing zip {final_zip_path}: {error}. Archiving may fail."
+                    tr(
+                        "Error removing existing zip {final_zip_path}: {error}. Archiving may fail or append to old data."
                     ).format(
                         final_zip_path=final_zip_path, error=self.stack_Error(e_del_zip)
                     ),
@@ -2482,26 +2649,32 @@ class ManifestDownloader(ctk.CTk):
                 )
                 return None
         try:
-            with zipfile.ZipFile(final_zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-                for root, dirs, files in os.walk(processing_dir):
+            with zipfile.ZipFile(
+                final_zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=6
+            ) as zipf:
+                for root, _unused_dirs, files in os.walk(processing_dir):
                     for file in files:
-                        file_path = os.path.join(root, file)
+                        file_path_abs, file_basename_lower = (
+                            os.path.join(root, file),
+                            file.lower(),
+                        )
                         if (
                             strict_mode_active
-                            and os.path.basename(file.lower()) in key_files_to_exclude
+                            and file_basename_lower in key_files_to_exclude_in_strict
                         ):
                             self.print_colored_ui(
-                                _(
-                                    "Excluding {file} from zip (strict mode active)."
+                                tr(
+                                    "Excluding '{file}' from final zip (Strict Validation is ON)."
                                 ).format(file=file),
                                 "yellow",
                             )
                             continue
-                        zipf.write(
-                            file_path, os.path.relpath(file_path, start=processing_dir)
+                        archive_name = os.path.relpath(
+                            file_path_abs, start=processing_dir
                         )
+                        zipf.write(file_path_abs, archive_name)
             self.print_colored_ui(
-                _("\nZipped outcome to {final_zip_path}").format(
+                tr("\nSuccessfully created outcome zip: {final_zip_path}").format(
                     final_zip_path=final_zip_path
                 ),
                 "cyan",
@@ -2511,22 +2684,25 @@ class ManifestDownloader(ctk.CTk):
 
                 shutil.rmtree(processing_dir)
                 self.print_colored_ui(
-                    _("Source folder {processing_dir} deleted successfully.").format(
-                        processing_dir=processing_dir
-                    ),
+                    tr(
+                        "Temporary source folder {processing_dir} deleted successfully."
+                    ).format(processing_dir=processing_dir),
                     "green",
                 )
-            except OSError as e_del:
+            except OSError as e_del_temp:
                 self.print_colored_ui(
-                    _("Error deleting source folder {processing_dir}: {error}").format(
-                        processing_dir=processing_dir, error=self.stack_Error(e_del)
+                    tr(
+                        "Error deleting temporary source folder {processing_dir}: {error}. Please remove it manually."
+                    ).format(
+                        processing_dir=processing_dir,
+                        error=self.stack_Error(e_del_temp),
                     ),
                     "red",
                 )
             return final_zip_path
         except (zipfile.BadZipFile, OSError, FileNotFoundError) as e_zip:
             self.print_colored_ui(
-                _("Error creating zip file {final_zip_path}: {error}").format(
+                tr("Error creating zip file {final_zip_path}: {error}").format(
                     final_zip_path=final_zip_path, error=self.stack_Error(e_zip)
                 ),
                 "red",
@@ -2534,7 +2710,7 @@ class ManifestDownloader(ctk.CTk):
             return None
         except Exception as e_generic_zip:
             self.print_colored_ui(
-                _("An unexpected error occurred during zipping: {error}").format(
+                tr("An unexpected error occurred during zipping: {error}").format(
                     error=self.stack_Error(e_generic_zip)
                 ),
                 "red",
@@ -2542,91 +2718,226 @@ class ManifestDownloader(ctk.CTk):
             return None
 
     def on_closing(self) -> None:
-        if messagebox.askokcancel(_("Quit"), _("Do you want to quit?")):
+        if messagebox.askokcancel(tr("Quit"), tr("Do you want to quit?")):
             self.cancel_search = True
-            if self.initial_load_thread and self.initial_load_thread.is_alive():
-                self.print_colored_ui(
-                    _("Attempting to stop initial app list loading..."), "yellow"
-                )
-            if self.search_thread and self.search_thread.is_alive():
-                self.print_colored_ui(
-                    _("Attempting to stop search thread..."), "yellow"
-                )
-
             self.settings_manager.set("window_geometry", self.geometry())
             self.settings_manager.save_settings()
-
             self.destroy()
 
     def _refresh_ui_texts(self) -> None:
-        """Updates all static UI texts with the current language."""
-        self.title(_("Steam Depot Online (SDO)"))
-
-        self.encrypted_label.configure(text=_("Encrypted Repositories:"))
-        self.select_all_enc_button.configure(text=_("Select All"))
-        self.decrypted_label.configure(text=_("Decrypted Repositories:"))
-        self.select_all_dec_button.configure(text=_("Select All"))
-        self.branch_label.configure(text=_("Branch Repositories:"))
-        self.select_all_branch_button.configure(text=_("Select All"))
-
-        self.add_repo_button.configure(text=_("Add Repo"))
-        self.delete_repo_button.configure(text=_("Delete Repo"))
-        self.settings_button.configure(text=_("Settings"))
-        self.output_folder_button.configure(text=_("Output Folder"))
+        self.title(tr("Steam Depot Online (SDO)"))
+        self.encrypted_label.configure(text=tr("Encrypted Repositories:"))
+        self.select_all_enc_button.configure(text=tr("Select All"))
+        Tooltip(
+            self.select_all_enc_button,
+            tr("Toggle selection for all Encrypted repositories."),
+        )
+        self.decrypted_label.configure(text=tr("Decrypted Repositories:"))
+        self.select_all_dec_button.configure(text=tr("Select All"))
+        Tooltip(
+            self.select_all_dec_button,
+            tr("Toggle selection for all Decrypted repositories."),
+        )
+        self.branch_label.configure(text=tr("Branch Repositories:"))
+        self.select_all_branch_button.configure(text=tr("Select All"))
+        Tooltip(
+            self.select_all_branch_button,
+            tr("Toggle selection for all Branch repositories."),
+        )
+        self.add_repo_button.configure(text=tr("Add Repo"))
+        Tooltip(self.add_repo_button, tr("Add a new GitHub repository to the list."))
+        self.delete_repo_button.configure(text=tr("Delete Repo"))
+        Tooltip(
+            self.delete_repo_button, tr("Delete selected repositories from the list.")
+        )
+        self.settings_button.configure(text=tr("Settings"))
+        Tooltip(
+            self.settings_button,
+            tr("Open application settings, including info, themes, and more."),
+        )
+        self.output_folder_button.configure(text=tr("Output Folder"))
+        Tooltip(
+            self.output_folder_button,
+            tr("Open the default download output folder where game zips are saved."),
+        )
         self.strict_validation_checkbox.configure(
-            text=_("Strict Validation (Require Key.vdf / Non Branch Repo)")
+            text=tr("Strict Validation (Require Key.vdf / Non Branch Repo)")
         )
-
-        self.game_input_label.configure(text=_("Enter Game Name or AppID:"))
-        self.game_input.configure(placeholder_text=_("e.g. 123456 or Game Name"))
-        self.paste_button.configure(text=_("Paste"))
-        self.search_button.configure(text=_("Search"))
-        self.download_button.configure(text=_("Download"))
-
-        self.download_type_label.configure(text=_("Select appid(s) to download:"))
+        Tooltip(
+            self.strict_validation_checkbox,
+            tr(
+                "When checked, for non-Branch repos, only downloads manifest files and attempts to extract keys if key.vdf/config.vdf is found. Key files are excluded from final zip. When unchecked, all files are downloaded, and key files are included."
+            ),
+        )
+        self.game_input_label.configure(text=tr("Enter Game Name or AppID:"))
+        self.game_input.configure(placeholder_text=tr("e.g. 123456 or Game Name"))
+        Tooltip(
+            self.game_input,
+            tr(
+                "Enter a game name (e.g., 'Portal 2') or AppID (e.g., '620'). For batch download, enter multiple AppIDs separated by commas or newlines."
+            ),
+        )
+        self.paste_button.configure(text=tr("Paste"))
+        Tooltip(self.paste_button, tr("Paste text from clipboard into the input field."))
+        self.search_button.configure(text=tr("Search"))
+        Tooltip(
+            self.search_button,
+            tr("Search for games matching the entered name or AppID."),
+        )
+        self.download_button.configure(text=tr("Download"))
+        Tooltip(
+            self.download_button,
+            tr("Download manifests/data for the selected game or all entered AppIDs."),
+        )
+        self.download_type_label.configure(text=tr("Select appid(s) to download:"))
         self.radio_download_selected.configure(
-            text=_("Selected game in search results")
+            text=tr("Selected game in search results")
         )
-        self.radio_download_all_input.configure(text=_("All AppIDs in input field"))
+        Tooltip(
+            self.radio_download_selected,
+            tr("Download only the game selected from the search results (if any)."),
+        )
+        self.radio_download_all_input.configure(text=tr("All AppIDs in input field"))
+        Tooltip(
+            self.radio_download_all_input,
+            tr(
+                "Download all AppIDs found in the 'Enter Game Name or AppID' field, ignoring search results. Useful for batch downloads.\nNote: If multiple AppIDs are entered, all will be downloaded sequentially, skipping individual game details."
+            ),
+        )
+        self.results_label.configure(text=tr("Search Results:"))
 
-        self.results_label.configure(text=_("Search Results:"))
+        target_progress_tab_title = tr("Progress")
+        target_downloaded_tab_title = tr("Downloaded Manifests")
+
+        if (
+            hasattr(self, "current_progress_tab_name")
+            and target_progress_tab_title != self.current_progress_tab_name
+        ):
+            try:
+                if self.main_tabview.tab(self.current_progress_tab_name) is not None:
+                    self.main_tabview.rename(
+                        self.current_progress_tab_name, target_progress_tab_title
+                    )
+                    self.current_progress_tab_name = target_progress_tab_title
+                else:
+                    self.append_progress(
+                        f"Tab '{self.current_progress_tab_name}' not found for renaming.",
+                        "yellow",
+                    )
+            except Exception as e:
+                self.append_progress(
+                    f"Error renaming progress tab from '{self.current_progress_tab_name}' to '{target_progress_tab_title}': {e}",
+                    "red",
+                )
+
+        if (
+            hasattr(self, "current_downloaded_tab_name")
+            and target_downloaded_tab_title != self.current_downloaded_tab_name
+        ):
+            try:
+                if self.main_tabview.tab(self.current_downloaded_tab_name) is not None:
+                    self.main_tabview.rename(
+                        self.current_downloaded_tab_name, target_downloaded_tab_title
+                    )
+                    self.current_downloaded_tab_name = target_downloaded_tab_title
+                else:
+                    self.append_progress(
+                        f"Tab '{self.current_downloaded_tab_name}' not found for renaming.",
+                        "yellow",
+                    )
+            except Exception as e:
+                self.append_progress(
+                    f"Error renaming downloaded tab from '{self.current_downloaded_tab_name}' to '{target_downloaded_tab_title}': {e}",
+                    "red",
+                )
 
         self._setup_downloaded_manifests_tab()
+        if hasattr(self, "main_tabview") and hasattr(self, "current_progress_tab_name"):
+            try:
+                tab_exists = any(
+                    name == self.current_progress_tab_name
+                    for name in self.main_tabview._name_list
+                )
+                if (
+                    tab_exists
+                    and self.main_tabview.get() != self.current_progress_tab_name
+                ):
+                    self.main_tabview.set(self.current_progress_tab_name)
+            except Exception as e:
+                self.append_progress(
+                    f"Error setting active tab to '{self.current_progress_tab_name}': {e}",
+                    "yellow",
+                )
 
-    def toggle_all_repos(self, repo_type: str) -> None:
-        if repo_type not in ["encrypted", "decrypted", "branch"]:
+        if (
+            hasattr(self, "settings_window_ref")
+            and self.settings_window_ref.winfo_exists()
+        ):
+            current_settings_tab = self.settings_window_ref.children.get(
+                "!ctktabview", None
+            )
+            current_selected_tab_name = (
+                current_settings_tab.get()
+                if current_settings_tab
+                and isinstance(current_settings_tab, ctk.CTkTabview)
+                else None
+            )
+            self.settings_window_ref.destroy()
+            self.open_settings_window()
+            if (
+                current_selected_tab_name
+                and hasattr(self, "settings_window_ref")
+                and self.settings_window_ref.winfo_exists()
+            ):
+                new_settings_tabview = self.settings_window_ref.children.get(
+                    "!ctktabview", None
+                )
+                if new_settings_tabview and isinstance(
+                    new_settings_tabview, ctk.CTkTabview
+                ):
+                    try:
+                        new_general_tab_title = tr("General Settings")
+                        new_settings_tabview.set(new_general_tab_title)
+                    except ValueError:
+                        if new_settings_tabview._name_list:
+                            new_settings_tabview.set(new_settings_tabview._name_list[0])
+
+    def toggle_all_repos(self, repo_type_to_toggle: str) -> None:
+        if repo_type_to_toggle.lower() not in ["encrypted", "decrypted", "branch"]:
+            self.print_colored_ui(
+                tr(
+                    "Invalid repository type specified for toggle: {repo_type_to_toggle}."
+                ).format(repo_type_to_toggle=repo_type_to_toggle),
+                "red",
+            )
             return
-
-        all_relevant_selected: bool = True
-        relevant_repos_count: int = 0
-
-        for repo_name, stored_repo_type in self.repos.items():
-            if stored_repo_type.lower() == repo_type.lower():
+        (
+            all_relevant_currently_selected,
+            relevant_repos_count,
+            repos_of_type_to_process,
+        ) = (True, 0, [])
+        for repo_name, stored_repo_type_in_map in self.repos.items():
+            if stored_repo_type_in_map.lower() == repo_type_to_toggle.lower():
                 relevant_repos_count += 1
+                repos_of_type_to_process.append(repo_name)
                 if repo_name in self.repo_vars and not self.repo_vars[repo_name].get():
-                    all_relevant_selected = False
-                    break
-
+                    all_relevant_currently_selected = False
         if relevant_repos_count == 0:
             self.print_colored_ui(
-                _("No {repo_type} repositories to toggle.").format(repo_type=repo_type),
+                tr("No {repo_type_to_toggle} repositories found to toggle.").format(
+                    repo_type_to_toggle=repo_type_to_toggle
+                ),
                 "yellow",
             )
             return
-
-        new_state: bool = not all_relevant_selected
-
-        for repo_name, stored_repo_type in self.repos.items():
-            if (
-                stored_repo_type.lower() == repo_type.lower()
-                and repo_name in self.repo_vars
-            ):
-                self.repo_vars[repo_name].set(new_state)
-
-        action_str: str = _("Selected") if new_state else _("Deselected")
+        new_selection_state: bool = not all_relevant_currently_selected
+        for repo_name in repos_of_type_to_process:
+            if repo_name in self.repo_vars:
+                self.repo_vars[repo_name].set(new_selection_state)
+        action_str: str = tr("Selected") if new_selection_state else tr("Deselected")
         self.print_colored_ui(
-            _("{action_str} all {repo_type} repositories.").format(
-                action_str=action_str, repo_type=repo_type
+            tr("{action_str} all {repo_type_to_toggle} repositories.").format(
+                action_str=action_str, repo_type_to_toggle=repo_type_to_toggle
             ),
             "blue",
         )
@@ -2635,25 +2946,24 @@ class ManifestDownloader(ctk.CTk):
     def open_add_repo_window(self) -> None:
         if (
             hasattr(self, "add_repo_window_ref")
+            and self.add_repo_window_ref is not None
             and self.add_repo_window_ref.winfo_exists()
         ):
-            self.add_repo_window_ref.focus()
+            self.add_repo_window_ref.focus_force()
             return
         self.add_repo_window_ref = ctk.CTkToplevel(self)
-        self.add_repo_window_ref.title(_("Add Repository"))
+        self.add_repo_window_ref.title(tr("Add Repository"))
         self.add_repo_window_ref.geometry("400x220")
         self.add_repo_window_ref.resizable(False, False)
         self.add_repo_window_ref.transient(self)
         self.add_repo_window_ref.grab_set()
-
         ctk.CTkLabel(
-            self.add_repo_window_ref, text=_("Repository Name (e.g., user/repo):")
+            self.add_repo_window_ref, text=tr("Repository Name (e.g., user/repo):")
         ).pack(padx=10, pady=(10, 2))
         self.repo_name_entry = ctk.CTkEntry(self.add_repo_window_ref, width=360)
         self.repo_name_entry.pack(padx=10, pady=(0, 5))
         self.repo_name_entry.focus()
-
-        ctk.CTkLabel(self.add_repo_window_ref, text=_("Repository Type:")).pack(
+        ctk.CTkLabel(self.add_repo_window_ref, text=tr("Repository Type:")).pack(
             padx=10, pady=(10, 2)
         )
         self.repo_state_var = ctk.StringVar(value="Branch")
@@ -2663,22 +2973,32 @@ class ManifestDownloader(ctk.CTk):
             values=["Encrypted", "Decrypted", "Branch"],
             width=360,
         ).pack(padx=10, pady=(0, 10))
-
-        add_button = ctk.CTkButton(
-            self.add_repo_window_ref, text=_("Add"), command=self.add_repo, width=100
-        )
-        add_button.pack(padx=10, pady=10)
+        ctk.CTkButton(
+            self.add_repo_window_ref, text=tr("Add"), command=self.add_repo, width=100
+        ).pack(padx=10, pady=10)
         self.add_repo_window_ref.protocol(
-            "WM_DELETE_WINDOW", self.add_repo_window_ref.destroy
+            "WM_DELETE_WINDOW", lambda: self._destroy_add_repo_window()
         )
         self.add_repo_window_ref.bind("<Return>", lambda e: self.add_repo())
+        self.add_repo_window_ref.bind(
+            "<Escape>", lambda e: self._destroy_add_repo_window()
+        )
+
+    def _destroy_add_repo_window(self) -> None:
+        if (
+            hasattr(self, "add_repo_window_ref")
+            and self.add_repo_window_ref is not None
+        ):
+            self.add_repo_window_ref.destroy()
+            self.add_repo_window_ref = None
 
     def add_repo(self) -> None:
         if (
             not hasattr(self, "add_repo_window_ref")
+            or self.add_repo_window_ref is None
             or not self.add_repo_window_ref.winfo_exists()
         ):
-            self.print_colored_ui(_("Add repo window not available."), "red")
+            self.print_colored_ui(tr("Add repository window is not available."), "red")
             return
         repo_name, repo_state = (
             self.repo_name_entry.get().strip(),
@@ -2686,8 +3006,8 @@ class ManifestDownloader(ctk.CTk):
         )
         if not repo_name:
             messagebox.showwarning(
-                _("Input Error"),
-                _("Please enter repository name."),
+                tr("Input Error"),
+                tr("Please enter the repository name."),
                 parent=self.add_repo_window_ref,
             )
             return
@@ -2699,17 +3019,17 @@ class ManifestDownloader(ctk.CTk):
             or repo_name.endswith("/")
         ):
             messagebox.showwarning(
-                _("Input Error"),
-                _(
-                    "Repository name must be in 'user/repo' format without spaces, leading/trailing slashes."
+                tr("Input Error"),
+                tr(
+                    "Repository name must be in 'owner/repository' format (e.g., 'octocat/Hello-World') without spaces or leading/trailing slashes."
                 ),
                 parent=self.add_repo_window_ref,
             )
             return
         if repo_name in self.repos:
             messagebox.showwarning(
-                _("Input Error"),
-                _("Repository '{repo_name}' already exists.").format(
+                tr("Input Error"),
+                tr("Repository '{repo_name}' already exists in your list.").format(
                     repo_name=repo_name
                 ),
                 parent=self.add_repo_window_ref,
@@ -2718,83 +3038,92 @@ class ManifestDownloader(ctk.CTk):
         self.repos[repo_name], self.selected_repos[repo_name] = repo_state, (
             repo_state == "Branch"
         )
-        self.save_repositories(), self.refresh_repo_checkboxes()
+        self.save_repositories()
+        self.refresh_repo_checkboxes()
         self.print_colored_ui(
-            _("Added repository: {repo_name} ({repo_state})").format(
+            tr("Added repository: {repo_name} (Type: {repo_state})").format(
                 repo_name=repo_name, repo_state=repo_state
             ),
             "green",
         )
-        self.add_repo_window_ref.destroy()
+        self._destroy_add_repo_window()
 
     def delete_repo(self) -> None:
-        repos_to_delete = [
+        repos_to_delete_names: List[str] = [
             cb.cget("text")
-            for sf in [self.encrypted_scroll, self.decrypted_scroll, self.branch_scroll]
-            for cb in sf.winfo_children()
+            for scroll_frame in [
+                self.encrypted_scroll,
+                self.decrypted_scroll,
+                self.branch_scroll,
+            ]
+            for cb in scroll_frame.winfo_children()
             if isinstance(cb, ctk.CTkCheckBox) and cb.get() == 1
         ]
-        if not repos_to_delete:
+        if not repos_to_delete_names:
             messagebox.showwarning(
-                _("Selection Error"),
-                _(
+                tr("Selection Error"),
+                tr(
                     "Please select at least one repository to delete by checking its box."
                 ),
             )
             return
-        if not messagebox.askyesno(
-            _("Confirm Deletion"),
-            _(
-                "Are you sure you want to delete these {len_repos_to_delete} repositories?\n\n- "
-            ).format(len_repos_to_delete=len(repos_to_delete))
-            + "\n- ".join(repos_to_delete),
-        ):
+        confirmation_message = tr(
+            "Are you sure you want to delete these {len_repos_to_delete} repositories?\n\n- "
+        ).format(len_repos_to_delete=len(repos_to_delete_names)) + "\n- ".join(
+            repos_to_delete_names
+        )
+        if not messagebox.askyesno(tr("Confirm Deletion"), confirmation_message):
             return
         deleted_count = 0
-        for repo in repos_to_delete:
-            if repo in self.repos:
-                del self.repos[repo]
-                if repo in self.selected_repos:
-                    del self.selected_repos[repo]
+        for repo_name_to_delete in repos_to_delete_names:
+            if repo_name_to_delete in self.repos:
+                del self.repos[repo_name_to_delete]
+                if repo_name_to_delete in self.selected_repos:
+                    del self.selected_repos[repo_name_to_delete]
+                if repo_name_to_delete in self.repo_vars:
+                    del self.repo_vars[repo_name_to_delete]
                 deleted_count += 1
-
         if deleted_count > 0:
-            self.save_repositories(), self.refresh_repo_checkboxes(), self.print_colored_ui(
-                _("Deleted {deleted_count} repositories: {repos_to_delete_str}").format(
+            self.save_repositories()
+            self.refresh_repo_checkboxes()
+            self.print_colored_ui(
+                tr("Deleted {deleted_count} repositories: {repos_to_delete_str}").format(
                     deleted_count=deleted_count,
-                    repos_to_delete_str=", ".join(repos_to_delete),
+                    repos_to_delete_str=", ".join(repos_to_delete_names),
                 ),
                 "red",
             )
         else:
             self.print_colored_ui(
-                _("No matching repositories found in data to delete."), "yellow"
+                tr(
+                    "No matching repositories found in the internal list to delete. UI might be out of sync."
+                ),
+                "yellow",
             )
 
     def refresh_repo_checkboxes(self) -> None:
-
-        for sf in [self.encrypted_scroll, self.decrypted_scroll, self.branch_scroll]:
-            for w in sf.winfo_children():
-                w.destroy()
-
-        new_repo_vars = {}
-
+        for scroll_frame in [
+            self.encrypted_scroll,
+            self.decrypted_scroll,
+            self.branch_scroll,
+        ]:
+            for widget in scroll_frame.winfo_children():
+                widget.destroy()
+        new_repo_vars_cache = {}
         sorted_repo_names = sorted(self.repos.keys())
-
         for repo_name in sorted_repo_names:
             repo_type = self.repos[repo_name]
-
-            initial_state = self.selected_repos.get(repo_name, (repo_type == "Branch"))
-            var = ctk.BooleanVar(value=initial_state)
-
+            initial_selection_state = self.selected_repos.get(
+                repo_name, (repo_type == "Branch")
+            )
+            var = ctk.BooleanVar(value=initial_selection_state)
             var.trace_add(
                 "write",
-                lambda name, index, mode, r=repo_name, v=var: self._update_selected_repo_state(
-                    r, v.get()
+                lambda name, index, mode, rn=repo_name, v=var: self._update_selected_repo_state(
+                    rn, v.get()
                 ),
             )
-            new_repo_vars[repo_name] = var
-
+            new_repo_vars_cache[repo_name] = var
             target_scroll_frame = None
             if repo_type == "Encrypted":
                 target_scroll_frame = self.encrypted_scroll
@@ -2804,75 +3133,82 @@ class ManifestDownloader(ctk.CTk):
                 target_scroll_frame = self.branch_scroll
             else:
                 self.print_colored_ui(
-                    _(
-                        "Unknown repo state '{repo_type}' for '{repo_name}'. Assigning to Decrypted section."
+                    tr(
+                        "Warning: Unknown repository type '{repo_type}' for '{repo_name}'. Assigning to Decrypted section for UI."
                     ).format(repo_type=repo_type, repo_name=repo_name),
                     "yellow",
                 )
                 target_scroll_frame = self.decrypted_scroll
-
             if target_scroll_frame:
-                cb = ctk.CTkCheckBox(target_scroll_frame, text=repo_name, variable=var)
-                cb.pack(anchor="w", padx=10, pady=2)
-
-        self.repo_vars = new_repo_vars
-
+                ctk.CTkCheckBox(target_scroll_frame, text=repo_name, variable=var).pack(
+                    anchor="w", padx=10, pady=2
+                )
+        self.repo_vars = new_repo_vars_cache
         self.save_repositories()
 
     def _update_selected_repo_state(self, repo_name: str, is_selected: bool) -> None:
-        """Updates the selected_repos state in memory and saves settings."""
         self.selected_repos[repo_name] = is_selected
-        self.save_repositories()
+        self.settings_manager.set("selected_repos", self.selected_repos)
+        self.settings_manager.save_settings()
+        action = tr("selected") if is_selected else tr("deselected")
+        self.append_progress(
+            tr("Repository '{repo_name}' {action}.").format(
+                repo_name=repo_name, action=action
+            ),
+            "default",
+        )
 
     def open_settings_window(self) -> None:
-
         if (
             hasattr(self, "settings_window_ref")
+            and self.settings_window_ref is not None
             and self.settings_window_ref.winfo_exists()
         ):
             self.settings_window_ref.destroy()
-
         self.settings_window_ref = ctk.CTkToplevel(self)
-        self.settings_window_ref.title(_("Settings"))
-        self.settings_window_ref.geometry("700x550")
+        self.settings_window_ref.title(tr("Settings"))
+        self.settings_window_ref.geometry("700x600")
         self.settings_window_ref.resizable(True, True)
         self.settings_window_ref.transient(self)
         self.settings_window_ref.grab_set()
-
-        settings_tabview = ctk.CTkTabview(self.settings_window_ref)
+        settings_tabview = ctk.CTkTabview(
+            self.settings_window_ref,
+            command=lambda: self.settings_window_ref.focus_force(),
+        )
         settings_tabview.pack(padx=10, pady=10, fill="both", expand=True)
 
-        general_tab_title = _("General Settings")
+        general_tab_title = tr("General Settings")
         general_tab = settings_tabview.add(general_tab_title)
         self._setup_general_settings_tab(general_tab)
 
-        repo_settings_tab_title = _("Repositories")
+        repo_settings_tab_title = tr("Repositories")
         repo_settings_tab = settings_tabview.add(repo_settings_tab_title)
         self._setup_repo_settings_tab(repo_settings_tab)
 
-        about_tab_title = _("About")
+        about_tab_title = tr("About")
         about_tab = settings_tabview.add(about_tab_title)
         self._setup_about_tab(about_tab)
 
         settings_tabview.set(general_tab_title)
-
         self.settings_window_ref.protocol(
-            "WM_DELETE_WINDOW", self.settings_window_ref.destroy
+            "WM_DELETE_WINDOW", lambda: self._destroy_settings_window()
         )
         self.settings_window_ref.after(100, self.settings_window_ref.focus_force)
 
-    def _setup_general_settings_tab(self, parent_tab: ctk.CTkFrame) -> None:
-        """Sets up the 'General Settings' tab."""
+    def _destroy_settings_window(self):
+        if hasattr(self, "settings_window_ref") and self.settings_window_ref:
+            self.settings_window_ref.destroy()
+            self.settings_window_ref = None
 
+    def _setup_general_settings_tab(self, parent_tab: ctk.CTkFrame) -> None:
         for widget in parent_tab.winfo_children():
             widget.destroy()
-
-        frame = ctk.CTkFrame(parent_tab)
-        frame.pack(fill="both", expand=True, padx=10, pady=10)
+        frame = ctk.CTkScrollableFrame(parent_tab)
+        frame.pack(fill="both", expand=True, padx=5, pady=5)
 
         download_frame = ctk.CTkFrame(frame)
-        download_frame.pack(fill="x", pady=5)
-        ctk.CTkLabel(download_frame, text=_("Download Location")).pack(
+        download_frame.pack(fill="x", pady=5, padx=5)
+        ctk.CTkLabel(download_frame, text=tr("Download Location:")).pack(
             side="left", padx=5
         )
         self.download_path_entry = ctk.CTkEntry(download_frame, width=300)
@@ -2880,54 +3216,50 @@ class ManifestDownloader(ctk.CTk):
         self.download_path_entry.pack(side="left", expand=True, fill="x", padx=5)
         choose_folder_button = ctk.CTkButton(
             download_frame,
-            text=_("Choose Folder"),
+            text=tr("Choose Folder"),
             command=self._choose_download_folder,
         )
         choose_folder_button.pack(side="left", padx=5)
         Tooltip(
             choose_folder_button,
-            _("Select the folder where downloaded games and manifests will be saved."),
+            tr("Select the folder where downloaded games and manifests will be saved."),
         )
 
         appearance_frame = ctk.CTkFrame(frame)
-        appearance_frame.pack(fill="x", pady=5)
-        ctk.CTkLabel(appearance_frame, text=_("Appearance Mode")).pack(
+        appearance_frame.pack(fill="x", pady=5, padx=5)
+        ctk.CTkLabel(appearance_frame, text=tr("Appearance Mode:")).pack(
             side="left", padx=5
         )
-
-        self.appearance_mode_var = ctk.StringVar(
-            value=self.settings_manager.get("appearance_mode")
+        current_appearance_mode = self.settings_manager.get("appearance_mode")
+        appearance_display_map = {
+            "dark": tr("Dark"),
+            "light": tr("Light"),
+            "system": tr("System"),
+        }
+        current_display_appearance = appearance_display_map.get(
+            current_appearance_mode, current_appearance_mode.capitalize()
         )
-
-        current_mode_display = {
-            "dark": _("Dark"),
-            "light": _("Light"),
-            "system": _("System"),
-        }.get(
-            self.settings_manager.get("appearance_mode"),
-            self.settings_manager.get("appearance_mode"),
-        )
-
-        self.appearance_mode_var.set(current_mode_display)
-
-        translated_appearance_modes = [_("Dark"), _("Light"), _("System")]
+        self.appearance_mode_var = ctk.StringVar(value=current_display_appearance)
+        translated_appearance_modes = [tr("Dark"), tr("Light"), tr("System")]
         self.appearance_mode_optionmenu = ctk.CTkOptionMenu(
             appearance_frame,
             variable=self.appearance_mode_var,
             values=translated_appearance_modes,
             command=self._change_appearance_mode,
         )
-        self.appearance_mode_optionmenu.pack(side="right", padx=5)
+        self.appearance_mode_optionmenu.pack(side="left", padx=5)
         Tooltip(
             self.appearance_mode_optionmenu,
-            _(
-                "Change the overall UI theme (Dark, Light, or follow System preferences)."
+            tr(
+                "Change the overall UI theme (Dark, Light, or follow System preferences). Restart may be needed."
             ),
         )
 
         color_theme_frame = ctk.CTkFrame(frame)
-        color_theme_frame.pack(fill="x", pady=5)
-        ctk.CTkLabel(color_theme_frame, text=_("Color Theme")).pack(side="left", padx=5)
+        color_theme_frame.pack(fill="x", pady=5, padx=5)
+        ctk.CTkLabel(color_theme_frame, text=tr("Color Theme:")).pack(
+            side="left", padx=5
+        )
         self.color_theme_var = ctk.StringVar(
             value=self.settings_manager.get("color_theme")
         )
@@ -2938,23 +3270,19 @@ class ManifestDownloader(ctk.CTk):
             values=color_theme_options,
             command=self._change_color_theme,
         )
-        self.color_theme_optionmenu.pack(side="right", padx=5)
+        self.color_theme_optionmenu.pack(side="left", padx=5)
         Tooltip(
-            self.color_theme_optionmenu, _("Change the primary accent color of the UI.")
+            self.color_theme_optionmenu, tr("Change the primary accent color of the UI.")
         )
 
         lang_frame = ctk.CTkFrame(frame)
-        lang_frame.pack(fill="x", pady=5)
-        ctk.CTkLabel(lang_frame, text=_("App Language")).pack(side="left", padx=5)
-
-        available_lang_display_names = list(
-            self.localization_manager.get_available_languages().values()
-        )
-        current_lang_display_name = (
-            self.localization_manager.get_available_languages().get(
-                self.localization_manager.current_language,
-                self.localization_manager.current_language,
-            )
+        lang_frame.pack(fill="x", pady=5, padx=5)
+        ctk.CTkLabel(lang_frame, text=tr("App Language:")).pack(side="left", padx=5)
+        available_lang_map = self.localization_manager.get_available_languages()
+        available_lang_display_names = list(available_lang_map.values())
+        current_lang_code = self.localization_manager.current_language
+        current_lang_display_name = available_lang_map.get(
+            current_lang_code, current_lang_code
         )
         self.lang_var = ctk.StringVar(value=current_lang_display_name)
         self.lang_optionmenu = ctk.CTkOptionMenu(
@@ -2963,89 +3291,329 @@ class ManifestDownloader(ctk.CTk):
             values=available_lang_display_names,
             command=self._change_language,
         )
-        self.lang_optionmenu.pack(side="right", padx=5)
+        self.lang_optionmenu.pack(side="left", padx=5)
         Tooltip(
-            self.lang_optionmenu, _("Change the display language of the application.")
+            self.lang_optionmenu,
+            tr("Change the display language of the application. Restart may be needed."),
         )
 
+        github_token_outer_frame = ctk.CTkFrame(frame)
+        github_token_outer_frame.pack(fill="x", pady=5, padx=5)
+        ctk.CTkLabel(
+            github_token_outer_frame, text=tr("GitHub API Token (Optional):")
+        ).pack(anchor="w", pady=(0, 2))
+        github_token_inner_frame = ctk.CTkFrame(github_token_outer_frame)
+        github_token_inner_frame.pack(fill="x")
+        self.github_token_entry = ctk.CTkEntry(
+            github_token_inner_frame, width=350, show="*"
+        )
+        self.github_token_entry.insert(0, self.settings_manager.get("github_api_token"))
+        self.github_token_entry.pack(side="left", expand=True, fill="x", padx=(0, 5))
+        Tooltip(
+            self.github_token_entry,
+            tr(
+                "Enter your GitHub Personal Access Token (PAT) to increase rate limits or access private data (if token has permissions). Stored locally in settings.json."
+            ),
+        )
+        self.use_github_token_var = ctk.BooleanVar(
+            value=self.settings_manager.get("use_github_api_token")
+        )
+        use_github_token_cb = ctk.CTkCheckBox(
+            github_token_inner_frame,
+            text=tr("Use Token"),
+            variable=self.use_github_token_var,
+        )
+        use_github_token_cb.pack(side="left", padx=5)
+        Tooltip(
+            use_github_token_cb,
+            tr(
+                "If checked, the application will use the provided GitHub API token for all relevant GitHub requests."
+            ),
+        )
+
+        # --- Rate Limit Check UI (MODIFIED SECTION) ---
+        rate_limit_ui_frame = ctk.CTkFrame(frame)
+        rate_limit_ui_frame.pack(pady=(10, 5), padx=5, anchor="w", fill="x")
+
+        check_rate_limit_button = ctk.CTkButton(
+            rate_limit_ui_frame,
+            text=tr("Check GitHub API Rate Limit"),
+            command=self._check_github_rate_limit_ui,
+        )
+        check_rate_limit_button.pack(side="left", padx=(0, 10))
+        Tooltip(
+            check_rate_limit_button,
+            tr(
+                "Check your current GitHub API rate limit status using the configured token (if enabled and set) or unauthenticated."
+            ),
+        )
+
+        self.rate_limit_display_label = ctk.CTkLabel(
+            rate_limit_ui_frame, text=tr("N/A"), font=("Helvetica", 18), width=120, text_color="gray"
+        )
+        self.rate_limit_display_label.pack(side="left", padx=(0, 5))
+        Tooltip(
+            self.rate_limit_display_label,
+            tr("GitHub API Rate Limit: Remaining/Total. Click button to update."),
+        )
+        # --- End Rate Limit Check UI ---
+
         update_check_frame = ctk.CTkFrame(frame)
-        update_check_frame.pack(fill="x", pady=5)
+        update_check_frame.pack(fill="x", pady=10, padx=5)
         self.update_check_var = ctk.BooleanVar(
             value=self.settings_manager.get("app_update_check_on_startup")
         )
         update_check_cb = ctk.CTkCheckBox(
             update_check_frame,
-            text=_("On startup, check for new versions"),
+            text=tr("On startup, check for new SDO versions"),
             variable=self.update_check_var,
         )
-        update_check_cb.pack(side="left", padx=5, pady=5)
+        update_check_cb.pack(side="left", padx=0, pady=5)
         Tooltip(
             update_check_cb,
-            _("Automatically check for new SDO versions when the application starts."),
+            tr("Automatically check for new SDO versions when the application starts."),
         )
-
         check_now_button = ctk.CTkButton(
             update_check_frame,
-            text=_("Check for Updates Now"),
+            text=tr("Check for Updates Now"),
             command=lambda: threading.Thread(
                 target=self.run_update_check, daemon=True
             ).start(),
         )
-        check_now_button.pack(side="right", padx=5)
-        Tooltip(check_now_button, _("Manually check for a new version of SDO."))
-
+        check_now_button.pack(side="right", padx=0, pady=5)
+        Tooltip(check_now_button, tr("Manually check for a new version of SDO."))
         ctk.CTkLabel(
             frame,
-            text=_("Current App Version: {app_version}").format(
+            text=tr("Current App Version: {app_version}").format(
                 app_version=self.APP_VERSION
             ),
-        ).pack(anchor="w", padx=5, pady=5)
-
+        ).pack(anchor="w", padx=10, pady=(10, 5))
         save_button = ctk.CTkButton(
-            frame, text=_("Save Changes"), command=self._save_general_settings
+            frame, text=tr("Save General Settings"), command=self._save_general_settings
         )
-        save_button.pack(pady=10)
-        Tooltip(save_button, _("Save all settings in this tab."))
+        save_button.pack(pady=15, padx=5)
+        Tooltip(
+            save_button, tr("Save all settings modified in this 'General Settings' tab.")
+        )
+
+    def _update_rate_limit_label(self, text_to_display: str) -> None:
+        if (
+            hasattr(self, "rate_limit_display_label")
+            and self.rate_limit_display_label
+            and self.rate_limit_display_label.winfo_exists()
+        ):
+            self.rate_limit_display_label.configure(text=text_to_display)
+
+    def _check_github_rate_limit_ui(self) -> None:
+        if not self.settings_manager.get(
+            "use_github_api_token"
+        ) or not self.settings_manager.get("github_api_token"):
+            msg = tr(
+                "GitHub token is not enabled or not set. Cannot check rate limit with token."
+            )
+            parent_win = (
+                self.settings_window_ref
+                if hasattr(self, "settings_window_ref")
+                and self.settings_window_ref.winfo_exists()
+                else self
+            )
+            if messagebox.askyesno(
+                tr("Unauthenticated Check?"),
+                msg
+                + "\n\n"
+                + tr(
+                    "Do you want to check the unauthenticated GitHub rate limit (based on your IP)?"
+                ),
+                parent=parent_win,
+            ):
+                self.append_progress(
+                    tr("Checking unauthenticated GitHub API rate limit..."), "default"
+                )
+                if (
+                    hasattr(self, "rate_limit_display_label")
+                    and self.rate_limit_display_label
+                ):
+                    self.after(0, self._update_rate_limit_label, tr("Checking..."))
+                threading.Thread(
+                    target=self.run_check_rate_limit, args=(False,), daemon=True
+                ).start()
+            else:
+                if (
+                    hasattr(self, "rate_limit_display_label")
+                    and self.rate_limit_display_label
+                ):
+                    self.after(
+                        0, self._update_rate_limit_label, tr("N/A (Token not set)")
+                    )
+            return
+
+        self.append_progress(
+            tr("Checking GitHub API rate limit (using token)..."), "default"
+        )
+        if hasattr(self, "rate_limit_display_label") and self.rate_limit_display_label:
+            self.after(0, self._update_rate_limit_label, tr("Checking..."))
+
+        threading.Thread(
+            target=self.run_check_rate_limit, args=(True,), daemon=True
+        ).start()
+
+    def run_check_rate_limit(self, use_token_override: bool = True) -> None:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(
+                self._async_check_github_rate_limit(use_token_override)
+            )
+        finally:
+            loop.close()
+
+    async def _async_check_github_rate_limit(self, use_token_override: bool) -> None:
+        final_display_text = tr("N/A")
+        request_headers, is_authenticated_check = {}, False
+
+        if use_token_override:
+            token_headers = self._get_github_headers()
+            if token_headers:
+                request_headers, is_authenticated_check = token_headers, True
+            else:
+                self.append_progress(
+                    tr(
+                        "Token not available for authenticated check; using unauthenticated."
+                    ),
+                    "yellow",
+                )
+
+        url = "https://api.github.com/rate_limit"
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    url,
+                    headers=request_headers,
+                    timeout=aiohttp.ClientTimeout(total=10),
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        core_limit_data = data.get("resources", {}).get("core", {})
+                        if not core_limit_data and not is_authenticated_check:
+                            core_limit_data = data.get("rate", {})
+
+                        limit = core_limit_data.get("limit")
+                        remaining = core_limit_data.get("remaining")
+
+                        if limit is not None and remaining is not None:
+                            auth_status_msg = (
+                                tr("(Authenticated)")
+                                if is_authenticated_check
+                                else tr("(Unauthenticated - IP Based)")
+                            )
+                            success_message = tr(
+                                "GitHub API Rate Limit checked {auth_status_msg}."
+                            ).format(auth_status_msg=auth_status_msg)
+                            self.append_progress(success_message, "green")
+                            final_display_text = f"{remaining}/{limit}"
+                        else:
+                            self.append_progress(
+                                tr(
+                                    "Could not retrieve detailed rate limit information from the response."
+                                ),
+                                "yellow",
+                            )
+                            final_display_text = tr("Error: Data missing")
+                    else:
+                        error_message_detail = tr(
+                            "Failed to check rate limit (Status: {status})."
+                        ).format(status=response.status)
+                        self.append_progress(error_message_detail, "red")
+                        if response.status == 401 and is_authenticated_check:
+                            self.append_progress(
+                                tr(
+                                    "  Error: Unauthorized. Check your GitHub API token and its permissions."
+                                ),
+                                "red",
+                            )
+                        elif response.status == 403:
+                            self.append_progress(
+                                tr(
+                                    "  Error: Forbidden (403). You might have exceeded rate limits or triggered abuse detection."
+                                ),
+                                "red",
+                            )
+                        final_display_text = tr("Error: Status {status}").format(
+                            status=response.status
+                        )
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            self.append_progress(
+                tr("Error during GitHub rate limit check: {error}").format(
+                    error=self.stack_Error(e)
+                ),
+                "red",
+            )
+            final_display_text = tr("Error: Network")
+        except json.JSONDecodeError:
+            self.append_progress(
+                tr("Error decoding GitHub rate limit JSON response."), "red"
+            )
+            final_display_text = tr("Error: JSON")
+        except Exception as e:
+            self.append_progress(
+                tr("Unexpected error during GitHub rate limit check: {error}").format(
+                    error=self.stack_Error(e)
+                ),
+                "red",
+            )
+            final_display_text = tr("Error: Unknown")
+        finally:
+            self.after(0, self._update_rate_limit_label, final_display_text)
 
     def _setup_repo_settings_tab(self, parent_tab: ctk.CTkFrame) -> None:
-        """Sets up the 'Repositories' settings tab."""
-
         for widget in parent_tab.winfo_children():
             widget.destroy()
-
         frame = ctk.CTkFrame(parent_tab)
         frame.pack(fill="both", expand=True, padx=10, pady=10)
-
         ctk.CTkLabel(
-            frame, text=_("Export/Import Repository List"), font=("Helvetica", 14.4)
-        ).pack(pady=10)
-
+            frame, text=tr("Manage Repository List"), font=("Helvetica", 14.4, "bold")
+        ).pack(pady=(5, 15))
         export_button = ctk.CTkButton(
-            frame, text=_("Export Repositories"), command=self._export_repositories
+            frame,
+            text=tr("Export Repositories to File"),
+            command=self._export_repositories,
+            height=30,
         )
-        export_button.pack(pady=5)
+        export_button.pack(pady=7, padx=20, fill="x")
         Tooltip(
             export_button,
-            _("Save your current repository list to a JSON file at a chosen location."),
-        )
-
-        import_button = ctk.CTkButton(
-            frame, text=_("Import Repositories"), command=self._import_repositories
-        )
-        import_button.pack(pady=5)
-        Tooltip(
-            import_button,
-            _(
-                "Load a repository list from a JSON file. Existing repositories will be merged."
+            tr(
+                "Save your current list of repositories (names and types) to a JSON file at a location you choose."
             ),
         )
+        import_button = ctk.CTkButton(
+            frame,
+            text=tr("Import Repositories from File"),
+            command=self._import_repositories,
+            height=30,
+        )
+        import_button.pack(pady=7, padx=20, fill="x")
+        Tooltip(
+            import_button,
+            tr(
+                "Load a list of repositories from a JSON file. Imported repositories will be added to your current list if they don't already exist. Duplicates by name are ignored."
+            ),
+        )
+        ctk.CTkLabel(
+            frame,
+            text=tr(
+                "Note: Importing will add new repositories from the file. It does not remove existing ones. Repository selection states are managed separately."
+            ),
+            wraplength=frame.winfo_width() - 60 if frame.winfo_width() > 60 else 600,
+            font=("Helvetica", 16, "italic"),
+            justify="left",
+            text_color="gray",
+        ).pack(pady=(15, 5), padx=10, fill="x")
 
     def _setup_about_tab(self, parent_tab: ctk.CTkFrame) -> None:
-        """Sets up the 'About' (formerly Info) tab."""
-
+        """Sets up the 'About' tab."""
         for widget in parent_tab.winfo_children():
             widget.destroy()
-
         info_text_frame = ctk.CTkFrame(parent_tab)
         info_text_frame.pack(padx=5, pady=5, fill="both", expand=True)
         info_textbox = Text(
@@ -3058,6 +3626,7 @@ class ManifestDownloader(ctk.CTk):
             padx=10,
             pady=10,
             borderwidth=0,
+            exportselection=True,
         )
         info_textbox.pack(side="left", fill="both", expand=True)
         info_scrollbar = ctk.CTkScrollbar(info_text_frame, command=info_textbox.yview)
@@ -3067,323 +3636,419 @@ class ManifestDownloader(ctk.CTk):
             "bold": {"font": ("Helvetica", 11, "bold")},
             "italic": {"font": ("Helvetica", 11, "italic")},
             "title": {
-                "font": ("Helvetica", 13, "bold"),
+                "font": ("Helvetica", 14, "bold"),
                 "foreground": "cyan",
-                "spacing1": 5,
-                "spacing3": 10,
+                "spacing1": 10,
+                "spacing3": 15,
                 "justify": "center",
             },
             "subtitle": {
-                "font": ("Helvetica", 11, "bold"),
+                "font": ("Helvetica", 12, "bold"),
                 "foreground": "deepskyblue",
-                "spacing1": 3,
-                "spacing3": 5,
+                "spacing1": 8,
+                "spacing3": 8,
             },
             "highlight": {"foreground": "lawn green"},
             "note": {"foreground": "orange"},
-            "normal": {"font": ("Helvetica", 11), "spacing3": 3},
+            "normal": {"font": ("Helvetica", 11), "spacing3": 5},
             "url": {
                 "font": ("Helvetica", 11),
                 "foreground": "light sky blue",
                 "underline": True,
+            },
+            "code": {
+                "font": ("Courier New", 10),
+                "background": "#404040",
+                "foreground": "#E0E0E0",
+                "lmargin1": 15,
+                "lmargin2": 15,
+                "spacing1": 3,
+                "spacing3": 3,
             },
         }
         for tag, conf in tags_config.items():
             info_textbox.tag_configure(tag, **conf)
         info_content = [
             (
-                _("Steam Depot Online (SDO) - Version: {version}\n").format(
+                tr("Steam Depot Online (SDO) - Version: {version}\n").format(
                     version=self.APP_VERSION
                 ),
                 "title",
             ),
-            (_("Author: "), "bold"),
+            (tr("Developed by: "), "bold"),
             ("FairyRoot\n", "highlight"),
-            (_("Contact (Telegram): "), "normal"),
+            (tr("Contact (Telegram): "), "normal"),
             ("t.me/FairyRoot\n\n", "url"),
-            (_("Overview:\n"), "subtitle"),
+            (tr("Overview:"), "subtitle"),
             (
-                _(
-                    "SDO fetches Steam game data from GitHub repositories. For 'Encrypted' and 'Decrypted' repo types, it can generate Lua scripts and zips the results. For 'Branch' repo types, it downloads and saves the GitHub branch zip directly. All successful outputs are placed in:\n`./Games/{GameName}-{AppID}.zip`\n\n"
-                ),
-                "normal",
-            ),
-            (_("Key Features:\n"), "subtitle"),
-            (
-                _(
-                    "- Add/delete GitHub repositories (user/repo format) with types: Encrypted, Decrypted, Branch.\n"
-                ),
-                "normal",
-            ),
-            (_("- Select multiple repositories for download attempts.\n"), "normal"),
-            (
-                _(
-                    "- Toggle 'Strict Validation' for non-Branch repositories (see below).\n"
-                ),
+                tr(
+                    "Steam Depot Online (SDO) is a tool designed to help users search for Steam games and download associated data from selected GitHub repositories. It primarily targets manifest files and decryption keys which can be used with Steam emulators or for archival purposes. The application offers different processing methods based on the type of repository ('Encrypted', 'Decrypted', 'Branch') and user settings like 'Strict Validation'."
+                )
+                + "\n\n"
+                + tr("Successfully processed non-Branch downloads are zipped into:\n"),
                 "normal",
             ),
             (
-                _(
-                    "- Search games by Name (uses Steam's full app list) or directly by AppID (uses Steam API).\n"
+                f"`{os.path.join(self.settings_manager.get('download_path', 'Games'), '{GameName}-{AppID}.zip')}`\n",
+                "code",
+            ),
+            (
+                tr(
+                    "Branch type downloads are saved directly as downloaded .zip files to the same location.\n\n"
                 ),
                 "normal",
             ),
+            (tr("Key Features:"), "subtitle"),
             (
-                _(
-                    "- View detailed game info (description, logo/header images, links) upon selection using Steam API.\n"
+                tr(
+                    "\n- Add, manage, and delete GitHub repositories (owner/repo format).\n"
                 ),
                 "normal",
             ),
             (
-                _(
-                    "- Download process priorities: For non-Branch, it attempts selected repos in order until success. Branch types are also attempted in order.\n"
+                tr(
+                    "- Categorize repositories as 'Encrypted', 'Decrypted', or 'Branch'.\n"
+                ),
+                "normal",
+            ),
+            (tr("- Select multiple repositories for download attempts.\n"), "normal"),
+            (
+                tr(
+                    "- Toggle 'Strict Validation' for non-Branch repositories to control file download and key handling.\n"
                 ),
                 "normal",
             ),
             (
-                _(
-                    "- Generates .lua scripts for Steam emulators (for non-Branch types that yield decryption keys).\n"
+                tr(
+                    "- Search games by Name (uses Steam's full app list) or directly by AppID (uses Steam API for details).\n"
                 ),
                 "normal",
             ),
             (
-                _(
-                    "- Zips downloaded files and .lua script (for non-Branch types). Branch types are saved as downloaded .zip.\n\n"
+                tr(
+                    "- Display game details including descriptions and images (requires Pillow library).\n"
                 ),
                 "normal",
             ),
-            (_("1. Repository Types Explained:\n"), "subtitle"),
-            (_("   - Decrypted Repositories: "), "bold"),
             (
-                _(
-                    "(Often preferred)\n     Usually contain necessary decryption keys (e.2., `key.vdf`). Games from these are more likely to be ready for use with emulators. Output is a tool-generated ZIP: `./Games/{GameName}-{AppID}.zip` containing processed files and a .lua script.\n"
+                tr(
+                    "- Generate .lua scripts for common Steam emulators (for non-Branch types if keys are found).\n"
                 ),
                 "normal",
             ),
-            (_("   - Encrypted Repositories: "), "bold"),
+            (tr("- Batch download capability by entering multiple AppIDs.\n"), "normal"),
             (
-                _(
-                    "\n     May have the latest game manifests but decryption keys within their `key.vdf`/`config.vdf` might be hashed, partial, or invalid. A .lua script is generated (can be minimal if no valid keys found). Output is a tool-generated ZIP like Decrypted ones.\n"
+                tr("- View and manage downloaded zip files directly from the app.\n"),
+                "normal",
+            ),
+            (tr("- Theme and language customization.\n"), "normal"),
+            (
+                tr("- Optional GitHub API Token usage for increased rate limits.\n\n"),
+                "normal",
+            ),
+            (tr("1. Repository Types Explained:"), "subtitle"),
+            (tr("\n   - Decrypted Repositories:"), "bold"),
+            (
+                tr(
+                    " (Often preferred for ready-to-use data)\n     These repositories typically contain necessary decryption keys (e.g., in a `key.vdf` or `config.vdf` file). SDO attempts to extract these keys and download associated manifest files. The output is a tool-generated ZIP file containing the processed files and a .lua script.\n"
+                ),
+                "normal",
+            ),
+            (tr("   - Encrypted Repositories:"), "bold"),
+            (
+                tr(
+                    "\n     These may host the latest game manifests, but decryption keys within their key files might be hashed, partial, or invalid for direct use. SDO will still attempt to process them, and a .lua script is generated (which could be minimal if no valid keys are found). The output is a tool-generated ZIP similar to Decrypted ones.\n"
                 ),
                 "note",
             ),
-            (_("   - Branch Repositories: "), "bold"),
+            (tr("   - Branch Repositories:"), "bold"),
             (
-                _(
-                    "\n     (Selected by default for new repos and on startup)\n     Downloads a direct .zip archive of an entire AppID-named branch from a GitHub repository (e.g., `main` or `1245620`). This downloaded .zip is saved *as is* directly to `./Games/{GameName}-{AppID}.zip`. **No .lua script is generated by SDO, and no further zipping or file processing is performed by SDO for this type.** 'Strict Validation' does not apply.\n\n"
+                tr(
+                    " (Direct archive download)\n     For these repositories, SDO downloads a direct .zip archive of an entire AppID-named branch (e.g., a branch named '1245620') from GitHub. This downloaded .zip is saved *as is* to your output folder. No .lua script is generated by SDO, and no further zipping or file processing (like key extraction or manifest filtering) is performed by SDO for this type. 'Strict Validation' does not apply to Branch repositories.\n"
                 ),
                 "normal",
             ),
             (
-                _(
-                    "   *Recommendation for Playable Games:* Prioritize 'Decrypted' repositories. 'Branch' repos provide raw game data zips which might be useful for archival or manual setup.\n"
+                tr(
+                    "   *Recommendation for Playable Games:* Prioritize 'Decrypted' repositories if your goal is to use the data with an emulator. 'Branch' repositories provide raw game data zips which might be useful for archival, manual setup, or if you trust the source's packaging.\n"
                 ),
                 "normal",
             ),
             (
-                _(
-                    "   *For Latest Manifests (Advanced Users):* 'Encrypted' repos might offer newer files, but you may need to source decryption keys elsewhere.\n\n"
+                tr(
+                    "   *For Latest Manifests (Advanced Users):* 'Encrypted' repositories might offer newer game files, but you may need to source valid decryption keys elsewhere if the repository itself doesn't provide usable ones.\n\n"
                 ),
                 "normal",
             ),
-            (_("2. 'Strict Validation' Checkbox:\n"), "subtitle"),
+            (tr("2. 'Strict Validation' Checkbox:"), "subtitle"),
             (
-                _(
-                    "   - Applies ONLY to 'Encrypted'/'Decrypted' (non-Branch) repositories.\n"
+                tr(
+                    "\n   - This setting applies ONLY to 'Encrypted' and 'Decrypted' (i.e., non-Branch) repository types.\n"
                 ),
                 "note",
             ),
-            (_("   - Checked (Default): "), "bold"),
+            (tr("   - Checked (Default):"), "bold"),
             (
-                _(
-                    "SDO requires a `key.vdf` or `config.vdf` to be present in the GitHub branch. It will prioritize downloading and parsing these key files. If valid decryption keys are found, associated `.manifest` files are also downloaded. The final tool-generated ZIP will *exclude* the `key.vdf`/`config.vdf` itself.\n"
+                tr(
+                    " SDO requires a `key.vdf` or `config.vdf` to be present in the fetched GitHub branch data. It will prioritize downloading and parsing these key files. If valid decryption keys are found, associated `.manifest` files are also downloaded. The final tool-generated ZIP will *exclude* the `key.vdf`/`config.vdf` itself, as the keys are incorporated into the .lua script.\n"
                 ),
                 "normal",
             ),
-            (_("   - Unchecked: "), "bold"),
+            (tr("   - Unchecked:"), "bold"),
             (
-                _(
-                    "SDO downloads all files from the GitHub branch. If `key.vdf`/`config.vdf` are present, they are parsed for keys. All downloaded files, *including* any `key.vdf`/`config.vdf`, WILL be included in the final tool-generated ZIP.\n\n"
+                tr(
+                    " SDO attempts to download all files from the fetched GitHub branch data. If `key.vdf`/`config.vdf` are present, they are parsed for keys. All downloaded files, *including* any `key.vdf`/`config.vdf`, WILL be included in the final tool-generated ZIP. This might be useful if you want the original key files for manual inspection or use with other tools.\n\n"
                 ),
                 "normal",
             ),
-            (_("3. How to Use:\n"), "subtitle"),
+            (tr("3. GitHub API Token:"), "subtitle"),
             (
-                _(
-                    "   1. Add GitHub repositories via 'Add Repo' (e.g., `SomeUser/SomeRepo`). Select the correct type (Encrypted, Decrypted, Branch).\n"
-                ),
-                "normal",
-            ),
-            (
-                _(
-                    "   2. Select checkboxes for repositories you want to use for downloads.\n"
+                tr(
+                    "\n   - You can add a GitHub Personal Access Token (PAT) in the General Settings.\n"
                 ),
                 "normal",
             ),
             (
-                _(
-                    "   3. Configure 'Strict Validation' as needed (affects non-Branch downloads).\n"
+                tr(
+                    "   - If a token is provided and the 'Use Token' checkbox is enabled, SDO will use this token for all requests to the GitHub API (e.g., fetching branch information, file trees, and downloading branch zips via the API).\n"
                 ),
                 "normal",
             ),
             (
-                _(
-                    "   4. Enter a game name or AppID and click 'Search'. Wait for the initial app list to load on first use.\n"
+                tr(
+                    "   - Using a token can significantly increase your API rate limit (from ~60 requests/hour per IP to ~5000 requests/hour per token) and may be required to access certain data or avoid public rate limits.\n"
                 ),
                 "normal",
             ),
             (
-                _(
-                    "   5. Select a game from the search results. Game details (images, text) will appear in the Progress panel.\n"
+                tr(
+                    "   - The token is stored locally in the `settings.json` file. Ensure this file is kept secure if you use a token with broad permissions.\n\n"
+                ),
+                "note",
+            ),
+            (tr("4. Usage Workflow:"), "subtitle"),
+            (
+                tr(
+                    "\n   1. (Optional) Configure GitHub API Token in Settings if you have one.\n   2. Add GitHub repositories via 'Add Repo' (e.g., `SomeUser/SomeRepo`). Correctly select their type.\n   3. Select the checkboxes for repositories you wish to use for downloads.\n   4. Adjust 'Strict Validation' if needed for non-Branch downloads.\n   5. Enter a game name or AppID(s) and click 'Search'. (Wait for initial Steam app list load on first use if searching by name).\n   6. If searching a single game, select it from the results. Details will appear in the Progress panel.\n   7. Choose your download mode ('Selected game' or 'All AppIDs in input').\n   8. Click 'Download'. Monitor the Progress panel.\n\n"
                 ),
                 "normal",
             ),
+            (tr("5. Potential Issues & Notes:"), "subtitle"),
             (
-                _(
-                    "   6. Click 'Download'. SDO will attempt to fetch from selected repos. The final output for any successful download will be `./Games/{GameName}-{AppID}.zip`.\n\n"
-                ),
-                "normal",
-            ),
-            (_("4. Potential Issues & Notes:\n"), "subtitle"),
-            (
-                _(
-                    "   - Image Display: Game logo/header requires Pillow (`pip install Pillow`). If not installed, images won't show.\n"
+                tr(
+                    "\n   - Image Display: Game logos/headers require the Pillow library (`pip install Pillow`). If not installed, images won't appear in game details.\n"
                 ),
                 "note",
             ),
             (
-                _(
-                    "   - 'Content is still encrypted' (in-game error, non-Branch output): The game files were downloaded, but valid decryption keys were not found or applied correctly by the emulator. Try a different 'Decrypted' repository or ensure your emulator setup is correct.\n"
+                tr(
+                    "   - 'Content is still encrypted' (In-game error for non-Branch output): This means the game files were downloaded, but either valid decryption keys were not found/extracted by SDO, or they were not correctly applied by your emulator. Try a different 'Decrypted' repository, verify your emulator setup, or check if the game requires specific key handling.\n"
                 ),
                 "normal",
             ),
             (
-                _(
-                    "   - Rate-limiting: GitHub or Steam APIs may temporarily limit requests if used excessively. Wait or consider a VPN for GitHub CDN access if issues persists.\n"
+                tr(
+                    "   - API Rate Limiting: Both GitHub and Steam APIs have rate limits. If you make too many requests in a short period, you might be temporarily blocked. Using a GitHub token helps with GitHub's limits. For Steam, limits are generally per-IP and less stringent for typical SDO usage.\n"
                 ),
                 "normal",
             ),
-            (_("   - Internet: A stable internet connection is required.\n"), "normal"),
             (
-                _(
-                    "   - Repository Order: The order of repositories in `repositories.json` (added order) can influence which one is tried first, but selection is primary. The tool iterates through *selected* repos.\n\n"
+                tr(
+                    "   - Internet Connection: A stable internet connection is required for all online operations.\n"
+                ),
+                "normal",
+            ),
+            (
+                tr(
+                    "   - Repository Availability: GitHub repositories can be removed or changed by their owners. What SDO can find depends on the content of the selected repositories at the time of download.\n\n"
                 ),
                 "normal",
             ),
         ]
+        info_textbox.configure(state="normal")
         for text, tag_name in info_content:
             info_textbox.insert("end", text, tag_name)
-        info_textbox.tag_add("center_title", "1.0", "1.end")
-        info_textbox.tag_configure("center_title", justify="center")
         info_textbox.configure(state="disabled")
+        info_textbox.see("1.0")
 
     def _choose_download_folder(self) -> None:
-        """Opens a directory chooser dialog and updates the download path."""
         current_path = self.settings_manager.get("download_path")
+        parent_window = (
+            self.settings_window_ref
+            if (
+                hasattr(self, "settings_window_ref")
+                and self.settings_window_ref
+                and self.settings_window_ref.winfo_exists()
+            )
+            else self
+        )
         chosen_path = filedialog.askdirectory(
-            parent=self.settings_window_ref,
+            parent=parent_window,
             initialdir=current_path if os.path.isdir(current_path) else os.getcwd(),
-            title=_("Select Download Folder"),
+            title=tr("Select Download Folder"),
         )
         if chosen_path:
             self.download_path_entry.delete(0, END)
             self.download_path_entry.insert(0, chosen_path)
             self.append_progress(
-                _("Download path updated to: {chosen_path}").format(
-                    chosen_path=chosen_path
-                ),
+                tr(
+                    "Download path updated to: {chosen_path}. Changes will be saved when you click 'Save General Settings'."
+                ).format(chosen_path=chosen_path),
                 "default",
             )
 
     def _change_appearance_mode(self, new_appearance_mode_display: str) -> None:
-        """Changes the CTk appearance mode setting and prompts for restart."""
-
-        reverse_map = {_("Dark"): "dark", _("Light"): "light", _("System"): "system"}
+        reverse_map = {tr("Dark"): "dark", tr("Light"): "light", tr("System"): "system"}
         actual_mode = reverse_map.get(
             new_appearance_mode_display, new_appearance_mode_display.lower()
         )
-
-        self.settings_manager.set("appearance_mode", actual_mode)
-        self.settings_manager.save_settings()
-
-        messagebox.showinfo(
-            _("Appearance Mode Change"),
-            _(
-                "Appearance mode changed to {new_appearance_mode_display}. Please restart the application for the changes to take full effect."
-            ).format(new_appearance_mode_display=new_appearance_mode_display),
-            parent=self.settings_window_ref,
+        current_ctk_mode = ctk.get_appearance_mode().lower()
+        if actual_mode.lower() != current_ctk_mode:
+            ctk.set_appearance_mode(actual_mode)
+            self.settings_manager.set("appearance_mode", actual_mode)
+            self.append_progress(
+                tr(
+                    "Appearance mode set to: {new_appearance_mode_display}. Some changes may require a restart to fully apply."
+                ).format(new_appearance_mode_display=new_appearance_mode_display),
+                "yellow",
+            )
+        parent_win = (
+            self.settings_window_ref
+            if hasattr(self, "settings_window_ref")
+            and self.settings_window_ref.winfo_exists()
+            else self
         )
-        self.append_progress(
-            _(
-                "Appearance mode set to: {new_appearance_mode_display}. Restart required for full effect."
+        messagebox.showinfo(
+            tr("Appearance Mode Change"),
+            tr(
+                "Appearance mode changed to {new_appearance_mode_display}. A restart might be needed for all UI elements to update correctly."
             ).format(new_appearance_mode_display=new_appearance_mode_display),
-            "yellow",
+            parent=parent_win,
         )
 
     def _change_color_theme(self, new_color_theme: str) -> None:
-        """Changes the CTk color theme and saves the setting."""
-        ctk.set_default_color_theme(new_color_theme)
-        self.settings_manager.set("color_theme", new_color_theme)
-        self.settings_manager.save_settings()
-        self.append_progress(
-            _("Color theme set to: {new_color_theme}").format(
-                new_color_theme=new_color_theme
-            ),
-            "default",
-        )
+        current_theme = self.settings_manager.get("color_theme")
+        if new_color_theme.lower() != current_theme.lower():
+            try:
+                ctk.set_default_color_theme(new_color_theme)
+                self.settings_manager.set("color_theme", new_color_theme)
+                self.append_progress(
+                    tr(
+                        "Color theme set to: {new_color_theme}. A restart might be needed for all elements to reflect the new theme."
+                    ).format(new_color_theme=new_color_theme),
+                    "default",
+                )
+                parent_win = (
+                    self.settings_window_ref
+                    if hasattr(self, "settings_window_ref")
+                    and self.settings_window_ref.winfo_exists()
+                    else self
+                )
+                messagebox.showinfo(
+                    tr("Color Theme Change"),
+                    tr(
+                        "Color theme changed to {new_color_theme}. Please restart the application for changes to fully apply to all UI components."
+                    ).format(new_color_theme=new_color_theme),
+                    parent=parent_win,
+                )
+            except Exception as e:
+                self.append_progress(f"Error changing theme: {e}", "red")
 
     def _change_language(self, new_language_display_name: str) -> None:
-        """Changes the application language and saves the setting, then refreshes UI."""
-
-        available_languages = self.localization_manager.get_available_languages()
-        selected_code = None
-        for code, display_name in available_languages.items():
-            if display_name == new_language_display_name:
-                selected_code = code
-                break
-
-        if selected_code:
-            old_lang_code = self.localization_manager.current_language
-            self.localization_manager.set_language(selected_code)
-
-            if selected_code != old_lang_code:
-
+        available_languages_map = self.localization_manager.get_available_languages()
+        selected_lang_code = next(
+            (
+                code
+                for code, display_name in available_languages_map.items()
+                if display_name == new_language_display_name
+            ),
+            None,
+        )
+        if selected_lang_code:
+            if selected_lang_code != self.localization_manager.current_language:
+                self.localization_manager.set_language(selected_lang_code)
                 self._refresh_ui_texts()
-
-                if (
-                    hasattr(self, "settings_window_ref")
-                    and self.settings_window_ref.winfo_exists()
-                ):
-                    self.settings_window_ref.destroy()
-                    self.open_settings_window()
-
                 self.append_progress(
-                    _(
-                        "Language changed to {new_language_display_name}. Please restart the application for full language changes to take effect."
+                    tr(
+                        "Language changed to {new_language_display_name}. Some elements might require an application restart to fully update."
                     ).format(new_language_display_name=new_language_display_name),
                     "yellow",
                 )
+                parent_win = (
+                    self.settings_window_ref
+                    if hasattr(self, "settings_window_ref")
+                    and self.settings_window_ref.winfo_exists()
+                    else self
+                )
+                messagebox.showinfo(
+                    tr("Language Change"),
+                    tr(
+                        "Language has been changed to {new_language_display_name}. A restart is recommended for all changes to take effect."
+                    ).format(new_language_display_name=new_language_display_name),
+                    parent=parent_win,
+                )
+            else:
+                self.append_progress(
+                    tr("Language is already set to {new_language_display_name}.").format(
+                        new_language_display_name=new_language_display_name
+                    ),
+                    "default",
+                )
         else:
             self.append_progress(
-                _("Could not set language to {new_language_display_name}.").format(
-                    new_language_display_name=new_language_display_name
-                ),
+                tr(
+                    "Could not set language. '{new_language_display_name}' not recognized."
+                ).format(new_language_display_name=new_language_display_name),
                 "red",
             )
 
     def _save_general_settings(self) -> None:
-        """Saves all settings from the 'General Settings' tab."""
-        self.settings_manager.set("download_path", self.download_path_entry.get())
-
+        new_download_path = self.download_path_entry.get()
+        if not os.path.isdir(new_download_path):
+            try:
+                os.makedirs(new_download_path, exist_ok=True)
+                self.settings_manager.set("download_path", new_download_path)
+            except OSError as e:
+                messagebox.showerror(
+                    tr("Save Error"),
+                    tr(
+                        "Invalid download path: {path}\nError: {error}\nPath not saved."
+                    ).format(path=new_download_path, error=e),
+                    parent=self.settings_window_ref,
+                )
+                self.append_progress(
+                    tr(
+                        "Failed to save download path: {new_download_path}. Error: {e}"
+                    ).format(new_download_path=new_download_path, e=e),
+                    "red",
+                )
+                self.download_path_entry.delete(0, END)
+                self.download_path_entry.insert(
+                    0, self.settings_manager.get("download_path")
+                )
+        else:
+            self.settings_manager.set("download_path", new_download_path)
+        self.settings_manager.set("github_api_token", self.github_token_entry.get())
+        self.settings_manager.set(
+            "use_github_api_token", self.use_github_token_var.get()
+        )
         self.settings_manager.set(
             "app_update_check_on_startup", self.update_check_var.get()
         )
         self.settings_manager.save_settings()
-        self.append_progress(_("Settings saved successfully."), "green")
+        self.append_progress(tr("General settings saved successfully."), "green")
         self.display_downloaded_manifests()
+        if (
+            hasattr(self, "settings_window_ref")
+            and self.settings_window_ref.winfo_exists()
+        ):
+            messagebox.showinfo(
+                tr("Settings Saved"),
+                tr("General settings have been saved."),
+                parent=self.settings_window_ref,
+            )
 
     def run_update_check(self) -> None:
-        """Performs the update check in a background thread."""
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
@@ -3392,121 +4057,248 @@ class ManifestDownloader(ctk.CTk):
             loop.close()
 
     async def async_check_for_updates(self) -> None:
-        """Asynchronously checks for new versions of the application."""
-        self.append_progress(_("Checking for updates..."), "default")
+        self.append_progress(tr("Checking for SDO updates..."), "default")
+        request_headers = (
+            self._get_github_headers() if self._get_github_headers() else {}
+        )
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
-                    self.GITHUB_RELEASES_API, timeout=aiohttp.ClientTimeout(total=10)
+                    self.GITHUB_RELEASES_API,
+                    headers=request_headers,
+                    timeout=aiohttp.ClientTimeout(total=10),
                 ) as response:
                     response.raise_for_status()
                     data = await response.json()
-
             latest_version_tag_raw = data.get("tag_name", "v0.0.0")
-
             latest_version_tag = re.sub(r"[^0-9.]", "", latest_version_tag_raw).strip(
                 "."
             )
             release_url = data.get(
                 "html_url", "https://github.com/fairy-root/steam-depot-online/releases"
             )
-
-            current_version_parts = list(map(int, self.APP_VERSION.split(".")))
-            latest_version_parts = list(map(int, latest_version_tag.split(".")))
-
-            if latest_version_parts > current_version_parts:
-                self.append_progress(
-                    _(
-                        "A new version ({latest_version}) is available! Current: {current_version}. Download from: {release_url}"
+            try:
+                current_version_parts = list(map(int, self.APP_VERSION.split(".")))
+                latest_version_parts = list(map(int, latest_version_tag.split(".")))
+                if latest_version_parts > current_version_parts:
+                    update_message = tr(
+                        "A new version of SDO ({latest_version}) is available! Your current version is {current_version}.\n\nDownload from: {release_url}"
                     ).format(
                         latest_version=latest_version_tag,
                         current_version=self.APP_VERSION,
                         release_url=release_url,
-                    ),
-                    "green",
-                )
-            else:
+                    )
+                    self.append_progress(update_message, "green")
+                    parent_win = (
+                        self.settings_window_ref
+                        if hasattr(self, "settings_window_ref")
+                        and self.settings_window_ref.winfo_exists()
+                        else self
+                    )
+                    messagebox.showinfo(
+                        tr("Update Available!"), update_message, parent=parent_win
+                    )
+                else:
+                    self.append_progress(
+                        tr(
+                            "Update check completed. You are using the latest version ({current_version})."
+                        ).format(current_version=self.APP_VERSION),
+                        "default",
+                    )
+            except ValueError:
                 self.append_progress(
-                    _("Update check completed. No new version available."), "default"
+                    tr(
+                        "Could not compare versions. Current: {current_version}, Latest fetched: {latest_version_tag_raw}."
+                    ).format(
+                        current_version=self.APP_VERSION,
+                        latest_version_tag_raw=latest_version_tag_raw,
+                    ),
+                    "yellow",
                 )
-
-        except (aiohttp.ClientError, asyncio.TimeoutError, json.JSONDecodeError) as e:
+        except aiohttp.ClientResponseError as e_http:
             self.append_progress(
-                _("Error checking for updates: {error}").format(
-                    error=self.stack_Error(e)
+                tr(
+                    "Failed to check for updates (HTTP Error {status}): {error_message}"
+                ).format(status=e_http.status, error_message=e_http.message),
+                "red",
+            )
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e_net:
+            self.append_progress(
+                tr("Network error while checking for updates: {error}").format(
+                    error=self.stack_Error(e_net)
                 ),
                 "red",
             )
-        except Exception as e:
+        except json.JSONDecodeError:
             self.append_progress(
-                _("Error checking for updates: {error}").format(
-                    error=self.stack_Error(e)
-                ),
+                tr("Failed to decode update information from GitHub."), "red"
+            )
+        except Exception as e_other:
+            self.append_progress(
+                tr(
+                    "An unexpected error occurred while checking for updates: {error}"
+                ).format(error=self.stack_Error(e_other)),
                 "red",
             )
 
     def _export_repositories(self) -> None:
-        """Exports the current repository list to a JSON file."""
+        parent_window = (
+            self.settings_window_ref
+            if (
+                hasattr(self, "settings_window_ref")
+                and self.settings_window_ref
+                and self.settings_window_ref.winfo_exists()
+            )
+            else self
+        )
         filepath = filedialog.asksaveasfilename(
-            parent=self.settings_window_ref,
+            parent=parent_window,
             defaultextension=".json",
-            filetypes=[(_("JSON files"), "*.json")],
-            title=_("Select destination for repositories.json"),
-            initialfile="repositories.json",
+            filetypes=[(tr("JSON files"), "*.json")],
+            title=tr("Select destination to export repositories.json"),
+            initialfile="repositories_export.json",
         )
         if filepath:
             try:
-                self.save_repositories(filepath)
+                with open(filepath, "w", encoding="utf-8") as f:
+                    json.dump(self.repos, f, indent=4)
                 self.append_progress(
-                    _("Repositories exported successfully to: {filepath}").format(
+                    tr("Repositories exported successfully to: {filepath}").format(
                         filepath=filepath
                     ),
                     "green",
                 )
+                messagebox.showinfo(
+                    tr("Export Successful"),
+                    tr("Repositories exported to:\n{filepath}").format(
+                        filepath=filepath
+                    ),
+                    parent=parent_window,
+                )
             except Exception as e:
                 messagebox.showerror(
-                    _("Save Error"),
-                    _("Failed to export repositories: {e}").format(e=e),
-                    parent=self.settings_window_ref,
+                    tr("Export Error"),
+                    tr("Failed to export repositories: {e}").format(e=e),
+                    parent=parent_window,
                 )
                 self.append_progress(
-                    _("Failed to export repositories: {e}").format(e=e), "red"
+                    tr("Failed to export repositories to {filepath}: {e}").format(
+                        filepath=filepath, e=e
+                    ),
+                    "red",
                 )
 
     def _import_repositories(self) -> None:
-        """Imports a repository list from a JSON file, merging with existing."""
+        parent_window = (
+            self.settings_window_ref
+            if (
+                hasattr(self, "settings_window_ref")
+                and self.settings_window_ref
+                and self.settings_window_ref.winfo_exists()
+            )
+            else self
+        )
         filepath = filedialog.askopenfilename(
-            parent=self.settings_window_ref,
+            parent=parent_window,
             defaultextension=".json",
-            filetypes=[(_("JSON files"), "*.json")],
-            title=_("Select repositories.json to import"),
+            filetypes=[(tr("JSON files"), "*.json")],
+            title=tr("Select repositories.json file to import"),
         )
         if filepath:
             try:
                 imported_repos = self.load_repositories(filepath)
-
-                self.repos.update(imported_repos)
-
+                if not imported_repos and not os.path.exists(filepath):
+                    messagebox.showerror(
+                        tr("Import Error"),
+                        tr("File not found or empty: {filepath}").format(
+                            filepath=filepath
+                        ),
+                        parent=parent_window,
+                    )
+                    return
+                if not imported_repos and os.path.exists(filepath):
+                    messagebox.showwarning(
+                        tr("Import Warning"),
+                        tr(
+                            "File {filepath} is empty or does not contain valid repository data."
+                        ).format(filepath=filepath),
+                        parent=parent_window,
+                    )
+                newly_added_count, skipped_duplicates_count = 0, 0
                 for repo_name, repo_type in imported_repos.items():
-                    if repo_name not in self.selected_repos:
-                        self.selected_repos[repo_name] = repo_type == "Branch"
-
-                self.save_repositories()
-                self.refresh_repo_checkboxes()
-                self.append_progress(
-                    _(
-                        "Repositories imported successfully from: {filepath}. Please review and save settings if changes were made."
-                    ).format(filepath=filepath),
-                    "green",
-                )
+                    if repo_name not in self.repos:
+                        self.repos[repo_name], self.selected_repos[repo_name] = (
+                            repo_type,
+                            (repo_type == "Branch"),
+                        )
+                        newly_added_count += 1
+                    else:
+                        skipped_duplicates_count += 1
+                if newly_added_count > 0:
+                    self.save_repositories()
+                    self.refresh_repo_checkboxes()
+                    self.append_progress(
+                        tr(
+                            "Successfully imported {newly_added_count} new repositories from: {filepath}."
+                        ).format(newly_added_count=newly_added_count, filepath=filepath)
+                        + (
+                            tr(" Skipped {skipped_duplicates_count} duplicates.").format(
+                                skipped_duplicates_count=skipped_duplicates_count
+                            )
+                            if skipped_duplicates_count > 0
+                            else ""
+                        ),
+                        "green",
+                    )
+                    messagebox.showinfo(
+                        tr("Import Successful"),
+                        tr("{newly_added_count} new repositories imported. ").format(
+                            newly_added_count=newly_added_count
+                        )
+                        + (
+                            tr(
+                                "{skipped_duplicates_count} duplicates were skipped."
+                            ).format(skipped_duplicates_count=skipped_duplicates_count)
+                            if skipped_duplicates_count > 0
+                            else ""
+                        )
+                        + tr("\nPlease review the repository list."),
+                        parent=parent_window,
+                    )
+                elif skipped_duplicates_count > 0 and newly_added_count == 0:
+                    self.append_progress(
+                        tr(
+                            "Import complete. No new repositories were added from {filepath} as they already exist (checked by name)."
+                        ).format(filepath=filepath),
+                        "default",
+                    )
+                    messagebox.showinfo(
+                        tr("Import Information"),
+                        tr(
+                            "No new repositories were added. All repositories in the file already exist in your list."
+                        ),
+                        parent=parent_window,
+                    )
+                else:
+                    self.append_progress(
+                        tr(
+                            "Import from {filepath} resulted in no changes to the repository list."
+                        ).format(filepath=filepath),
+                        "default",
+                    )
             except Exception as e:
                 messagebox.showerror(
-                    _("Load Error"),
-                    _("Failed to import repositories: {e}").format(e=e),
-                    parent=self.settings_window_ref,
+                    tr("Import Error"),
+                    tr("Failed to import repositories from {filepath}: {e}").format(
+                        filepath=filepath, e=e
+                    ),
+                    parent=parent_window,
                 )
                 self.append_progress(
-                    _("Failed to import repositories: {e}").format(e=e), "red"
+                    tr("Failed to import repositories from {filepath}: {e}").format(
+                        filepath=filepath, e=e
+                    ),
+                    "red",
                 )
 
 
