@@ -374,11 +374,11 @@ class ManifestDownloader(ctk.CTk):
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
-                    "https://api.steampowered.com/ISteamApps/GetAppList/v2/",
+                    "https://raw.githubusercontent.com/dgibbs64/SteamCMD-AppID-List/main/steamcmd_appid.json",
                     timeout=aiohttp.ClientTimeout(total=30),
                 ) as response:
                     if response.status == 200:
-                        data = await response.json()
+                        data = await response.json(content_type=None)
                         self.steam_app_list = data.get("applist", {}).get("apps", [])
                         self.app_list_loaded_event.set()
                         self.append_progress(
